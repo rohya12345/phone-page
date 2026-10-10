@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MANAK Phone Capture</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f2a3d">
+<style>
+  :root { color-scheme: light dark; --bg:#f4f7fb; --card:#fff; --ink:#1f2a3d; --muted:#5b6a7d; --line:#d6dee9; --ok:#2e7d32; --err:#c62828; --warn:#a07d1e; --acc:#1f2a3d; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12161d; --card:#1b212b; --ink:#e6ebf2; --muted:#9aa7b8; --line:#2c3543; --acc:#3d6fd1; } }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font:16px/1.4 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); padding-bottom:env(safe-area-inset-bottom); }
+  #bar { position:sticky; top:0; z-index:5; padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top)); font-weight:600; font-size:14px; background:#fff8e6; color:var(--warn); }
+  #bar.ok { background:#e8f5e9; color:var(--ok); } #bar.err { background:#fdecea; color:var(--err); }
+  main { max-width:520px; margin:0 auto; padding:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px; }
+  h2 { margin:0 0 8px; font-size:16px; }
+  select, input[type=text] { width:100%; padding:12px; font-size:16px; border:1px solid var(--line); border-radius:10px; background:transparent; color:inherit; }
+  .nav { display:flex; gap:8px; margin-bottom:10px; } .nav select { flex:1; }
+  .nav button { width:54px; font-size:22px; }
+  button { padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:inherit; font-size:16px; }
+  button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
+  .info { font-size:14px; color:var(--muted); margin-bottom:12px; }
+  .info b { color:var(--ink); }
+  .cap { display:flex; gap:10px; }
+  .slot { flex:1; border:2px dashed var(--line); border-radius:14px; padding:10px; text-align:center; min-height:190px; display:flex; flex-direction:column; justify-content:space-between; gap:8px; }
+  .slot.done { border-style:solid; border-color:var(--ok); }
+  .slot.busy { border-color:var(--warn); } .slot.fail { border-color:var(--err); }
+  .slot .t { font-weight:700; }
+  .slot .thumb { height:96px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:13px; overflow:hidden; border-radius:8px; background:rgba(127,127,127,.1); }
+  .slot .thumb img { max-width:100%; max-height:96px; }
+  .slot .st { font-size:13px; min-height:18px; }
+  .slot button { width:100%; }
+  .gal { font-size:12px; color:var(--muted); text-decoration:underline; background:none; border:none; padding:2px; }
+  label.chk { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--muted); }
+  #msg { font-size:13px; color:var(--muted); min-height:18px; }
+  input[type=file] { display:none; }
+  .hide { display:none !important; }
+</style>
+</head>
+<body>
+<div id="bar">Starting…</div>
+<main>
+  <div class="card" id="pairCard">
+    <h2>Pair with your PC</h2>
+    <p id="pairHelp" style="margin:0 0 10px;color:var(--muted);font-size:14px;">Scan the QR code shown in the extension's “Capture from phone” window.</p>
+  </div>
+
+  <div id="mainCard" class="hide">
+    <div class="card">
+      <div class="nav">
+        <button id="prev" aria-label="Previous row">‹</button>
+        <select id="rowSel" aria-label="Row"></select>
+        <button id="next" aria-label="Next row">›</button>
+      </div>
+      <div class="info" id="rowInfo"></div>
+      <div class="cap">
+        <div class="slot" id="slotA">
+          <div class="t">🖼 Article</div>
+          <div class="thumb" id="thA">no photo</div>
+          <div class="st" id="stA"></div>
+          <button class="primary" id="btnA">📷 Take photo</button>
+          <button class="gal" id="galA">choose from gallery</button>
+        </div>
+        <div class="slot" id="slotH">
+          <div class="t">🔖 HUID</div>
+          <div class="thumb" id="thH">no photo</div>
+          <div class="st" id="stH"></div>
+          <button class="primary" id="btnH">📷 Take photo</button>
+          <button class="gal" id="galH">choose from gallery</button>
+        </div>
+      </div>
+      <label class="chk" style="margin-top:12px;"><input type="checkbox" id="auto" checked> Go to next row when both photos are sent</label>
+    </div>
+    <div id="msg"></div>
+  </div>
+</main>
+
+<input type="file" id="fcA" accept="image/*" capture="environment">
+<input type="file" id="fgA" accept="image/*">
+<input type="file" id="fcH" accept="image/*" capture="environment">
+<input type="file" id="fgH" accept="image/*">
+
+<script>
+(() => {
+  // Relay = Edge Function "mapu-api" in your Supabase project (private storage, per-session secrets).
+  const API = 'https://fhtpagfnshficnwkuqpm.supabase.co/functions/v1/mapu-api';
+  const $ = id => document.getElementById(id);
+  let sid = '', tok = '', rows = [], idx = 0, pollTimer = null, started = false;
+  const blobs = {};                  // "sno|kind" -> last JPEG blob (kept for retry)
+  const thumbs = {};                 // "sno|kind" -> objectURL
+  const state = {};                  // "sno|kind" -> 'busy' | 'fail'
+
+  function bar(t, cls) { const b = $('bar'); b.textContent = t; b.className = cls || ''; }
+  function toast(t) { $('msg').textContent = t || ''; }
+  const key = (sno, kind) => sno + '|' + kind;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  async function post(body, timeoutMs) {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), timeoutMs || 20000);
+    try {
+      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ac.signal });
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
+
+  // ---------- start ----------
+  function parseHash() {
+    const h = decodeURIComponent((location.hash || '').replace(/^#/, '')).trim();
+    const i = h.indexOf('.');
+    return i > 0 ? { sid: h.slice(0, i), tok: h.slice(i + 1) } : { sid: '', tok: '' };
+  }
+  async function init() {
+    ({ sid, tok } = parseHash());
+    if (!sid || !tok) {
+      bar('Not paired yet', 'err');
+      $('pairHelp').textContent = 'Open the extension on your PC → “📱 Capture from phone” and scan the QR code with this phone’s camera.';
+      return;
+    }
+    bar('Connecting…');
+    await refresh(true);
+  }
+  async function refresh(first) {
+    try {
+      const r = await post({ action: 'phone_init', session_id: sid, phone_token: tok }, 15000);
+      if (!r.ok) { bar((r.error || 'Session invalid') + '. Scan the QR code again.', 'err'); stopPoll(); return; }
+      bar('✅ Connected', 'ok');
+      $('pairCard').classList.add('hide'); $('mainCard').classList.remove('hide');
+      const cur = rows[idx] && rows[idx].sno;
+      rows = r.rows || [];
+      const keep = rows.findIndex(x => x.sno === cur);
+      idx = keep >= 0 ? keep : Math.min(idx, Math.max(0, rows.length - 1));
+      renderRows();
+      if (!started) { started = true; pollTimer = setInterval(() => refresh(false), 8000); }
+    } catch (e) {
+      bar('Connection problem — retrying…', 'err');
+      if (!started && first) setTimeout(() => refresh(true), 4000);
+    }
+  }
+  function stopPoll() { clearInterval(pollTimer); started = false; }
+
+  // ---------- rows ----------
+  function renderRows() {
+    const sel = $('rowSel');
+    sel.innerHTML = '';
+    toast(rows.length ? '' : 'No rows on the PC yet — open the HUID list page there and press “Scan Table & Match”, then “New QR”.');
+    rows.forEach((r, i) => {
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = 'S No. ' + r.sno + (r.huid ? ' · ' + r.huid : '') + '  [' + (r.a ? 'A✓' : 'A–') + ' ' + (r.h ? 'H✓' : 'H–') + ']';
+      sel.appendChild(o);
+    });
+    sel.value = idx;
+    renderRow();
+  }
+  function renderRow() {
+    const r = rows[idx];
+    if (!r) { $('rowInfo').textContent = ''; return; }
+    $('rowSel').value = idx;
+    $('rowInfo').innerHTML = 'S No. <b>' + esc(r.sno) + '</b>' + (r.tag ? ' · Tag <b>' + esc(r.tag) + '</b>' : '') +
+      (r.huid ? ' · HUID <b>' + esc(r.huid) + '</b>' : '') + (r.item ? ' · ' + esc(r.item) : '') + '  (' + (idx + 1) + '/' + rows.length + ')';
+    for (const [kind, L] of [['article', 'A'], ['huid', 'H']]) {
+      const k = key(r.sno, kind), has = kind === 'huid' ? r.h : r.a, st = state[k];
+      $('slot' + L).className = 'slot' + (st === 'busy' ? ' busy' : st === 'fail' ? ' fail' : has ? ' done' : '');
+      $('th' + L).innerHTML = thumbs[k] ? '<img src="' + thumbs[k] + '">' : (has ? '✓ already on PC' : 'no photo');
+      $('st' + L).textContent = st === 'busy' ? 'Sending…' : st === 'fail' ? 'Not sent — tap Retry' : has ? 'Sent ✓' : '';
+      $('btn' + L).textContent = st === 'fail' && blobs[k] ? '↻ Retry send' : (has ? '📷 Retake' : '📷 Take photo');
+    }
+  }
+  function go(n) { if (!rows.length) return; idx = (n + rows.length) % rows.length; renderRow(); }
+  $('prev').onclick = () => go(idx - 1);
+  $('next').onclick = () => go(idx + 1);
+  $('rowSel').onchange = e => go(Number(e.target.value));
+
+  // ---------- capture ----------
+  function openPicker(kind, camera) {
+    const r = rows[idx]; if (!r) { toast('No row selected.'); return; }
+    const k = key(r.sno, kind);
+    if (camera && state[k] === 'fail' && blobs[k]) { upload(kind, r.sno, blobs[k]); return; }   // retry the stored photo
+    const id = (camera ? 'fc' : 'fg') + (kind === 'huid' ? 'H' : 'A');
+    $(id).value = ''; $(id).click();
+  }
+  $('btnA').onclick = () => openPicker('article', true);
+  $('btnH').onclick = () => openPicker('huid', true);
+  $('galA').onclick = () => openPicker('article', false);
+  $('galH').onclick = () => openPicker('huid', false);
+  [['fcA', 'article'], ['fgA', 'article'], ['fcH', 'huid'], ['fgH', 'huid']].forEach(([id, kind]) => {
+    $(id).onchange = e => { const f = e.target.files && e.target.files[0]; if (f) prepareAndSend(kind, f); };
+  });
+
+  // Shrink to long side ≤ 1600 px and re-encode as JPEG, honouring EXIF rotation.
+  async function shrink(file, maxSide, q) {
+    let bmp;
+    try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch (e) {
+      bmp = await new Promise((res, rej) => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; });
+    }
+    const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
+    const s = Math.min(1, maxSide / Math.max(w0, h0));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(w0 * s); cv.height = Math.round(h0 * s);
+    cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+    return new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('encode failed')), 'image/jpeg', q));
+  }
+
+  async function prepareAndSend(kind, file) {
+    const r = rows[idx]; if (!r) { toast('No row selected.'); return; }
+    const sno = r.sno, k = key(sno, kind);
+    state[k] = 'busy'; toast('');
+    try {
+      const jpeg = await shrink(file, 1600, 0.85);
+      blobs[k] = jpeg;
+      if (thumbs[k]) URL.revokeObjectURL(thumbs[k]);
+      thumbs[k] = URL.createObjectURL(jpeg);
+      renderRow();
+      await upload(kind, sno, jpeg);
+    } catch (e) { state[k] = 'fail'; toast('Error: ' + e.message); renderRow(); }
+  }
+
+  async function upload(kind, sno, jpeg) {
+    const k = key(sno, kind);
+    state[k] = 'busy'; renderRow();
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 60000);
+    try {
+      const fd = new FormData();
+      fd.append('session_id', sid); fd.append('phone_token', tok);
+      fd.append('sno', sno); fd.append('kind', kind);
+      fd.append('file', jpeg, kind + '_' + sno + '.jpg');
+      const resp = await fetch(API, { method: 'POST', body: fd, signal: ac.signal });
+      const j = await resp.json();
+      if (!j.ok) throw new Error(j.error || ('HTTP ' + resp.status));
+      delete state[k];
+      const row = rows.find(x => x.sno === sno);
+      if (row) { if (kind === 'huid') row.h = true; else row.a = true; }
+      renderRows();
+      if ($('auto').checked && row && row.a && row.h && rows[idx] && rows[idx].sno === sno) go(idx + 1);
+    } catch (e) {
+      state[k] = 'fail';
+      toast(e.name === 'AbortError' ? 'Upload timed out — check signal and tap Retry.' : 'Not sent: ' + e.message);
+      renderRow();
+    } finally { clearTimeout(t); }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
