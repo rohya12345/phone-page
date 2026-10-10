@@ -6,36 +6,63 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1f2a3d">
 <style>
-  :root { color-scheme: light dark; --bg:#f4f7fb; --card:#fff; --ink:#1f2a3d; --muted:#5b6a7d; --line:#d6dee9; --ok:#2e7d32; --err:#c62828; --warn:#a07d1e; --acc:#1f2a3d; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#12161d; --card:#1b212b; --ink:#e6ebf2; --muted:#9aa7b8; --line:#2c3543; --acc:#3d6fd1; } }
+  :root { color-scheme: light dark; --bg:#f4f7fb; --card:#fff; --ink:#1f2a3d; --muted:#5b6a7d; --line:#d6dee9; --ok:#2e7d32; --err:#c62828; --warn:#a07d1e; --acc:#1f2a3d; --hi:#fff3c4; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12161d; --card:#1b212b; --ink:#e6ebf2; --muted:#9aa7b8; --line:#2c3543; --acc:#3d6fd1; --hi:#4a3d12; } }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  body { margin:0; font:16px/1.4 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); padding-bottom:env(safe-area-inset-bottom); }
-  #bar { position:sticky; top:0; z-index:5; padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top)); font-weight:600; font-size:14px; background:#fff8e6; color:var(--warn); }
+  body { margin:0; font:16px/1.4 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); padding-bottom:calc(20px + env(safe-area-inset-bottom)); }
+  #bar { position:sticky; top:0; z-index:10; padding:9px 14px; padding-top:calc(9px + env(safe-area-inset-top)); font-weight:600; font-size:14px; background:#fff8e6; color:var(--warn); }
   #bar.ok { background:#e8f5e9; color:var(--ok); } #bar.err { background:#fdecea; color:var(--err); }
-  main { max-width:520px; margin:0 auto; padding:14px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px; }
+  main { max-width:560px; margin:0 auto; padding:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:12px; }
   h2 { margin:0 0 8px; font-size:16px; }
-  select, input[type=text] { width:100%; padding:12px; font-size:16px; border:1px solid var(--line); border-radius:10px; background:transparent; color:inherit; }
-  .nav { display:flex; gap:8px; margin-bottom:10px; } .nav select { flex:1; }
-  .nav button { width:54px; font-size:22px; }
-  button { padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:inherit; font-size:16px; }
+  select { width:100%; padding:11px; font-size:16px; border:1px solid var(--line); border-radius:10px; background:transparent; color:inherit; }
+  button { padding:11px 12px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:inherit; font-size:15px; }
   button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
-  .info { font-size:14px; color:var(--muted); margin-bottom:12px; }
-  .info b { color:var(--ink); }
-  .cap { display:flex; gap:10px; }
-  .slot { flex:1; border:2px dashed var(--line); border-radius:14px; padding:10px; text-align:center; min-height:190px; display:flex; flex-direction:column; justify-content:space-between; gap:8px; }
-  .slot.done { border-style:solid; border-color:var(--ok); }
-  .slot.busy { border-color:var(--warn); } .slot.fail { border-color:var(--err); }
-  .slot .t { font-weight:700; }
-  .slot .thumb { height:96px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:13px; overflow:hidden; border-radius:8px; background:rgba(127,127,127,.1); }
-  .slot .thumb img { max-width:100%; max-height:96px; }
-  .slot .st { font-size:13px; min-height:18px; }
-  .slot button { width:100%; }
-  .gal { font-size:12px; color:var(--muted); text-decoration:underline; background:none; border:none; padding:2px; }
-  label.chk { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--muted); }
-  #msg { font-size:13px; color:var(--muted); min-height:18px; }
-  input[type=file] { display:none; }
+  button:disabled { opacity:.5; }
   .hide { display:none !important; }
+  .muted { color:var(--muted); font-size:13px; }
+
+  /* lot + progress */
+  .prog { height:10px; background:rgba(127,127,127,.2); border-radius:6px; overflow:hidden; margin-top:10px; }
+  #progBar { height:100%; width:0; background:var(--ok); transition:width .3s; }
+  #progTxt { font-size:13px; color:var(--muted); margin-top:5px; }
+
+  /* what to shoot next */
+  .target { background:var(--hi); border-color:#e6c75a; text-align:center; }
+  .target.done { background:#e8f5e9; border-color:#9ccc9f; color:#1b5e20; }
+  #tKind { font-size:26px; font-weight:800; letter-spacing:.3px; }
+  #tRow { font-size:15px; margin-top:2px; }
+  #tHuid { font:700 28px/1.2 ui-monospace,Consolas,monospace; letter-spacing:2px; margin-top:4px; }
+
+  /* camera */
+  #camBox { position:relative; background:#000; border-radius:12px; overflow:hidden; aspect-ratio:4/3; max-height:52vh; width:100%; display:flex; align-items:center; justify-content:center; }
+  #video { width:100%; height:100%; object-fit:cover; }
+  #camPlaceholder { position:absolute; color:#9aa7b8; font-size:14px; text-align:center; padding:12px; }
+  #flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; }
+  #flash.on { animation:fl .25s; } @keyframes fl { 0%{opacity:.85} 100%{opacity:0} }
+  .camrow { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:12px; }
+  .shutter { width:78px; height:78px; border-radius:50%; border:5px solid var(--acc); background:#fff; color:var(--acc); font-size:0; padding:0; box-shadow:0 0 0 3px var(--card) inset; }
+  .shutter:active { transform:scale(.94); }
+  .round { width:50px; height:50px; border-radius:50%; padding:0; font-size:20px; }
+  .alt { display:flex; gap:8px; margin-top:12px; } .alt button { flex:1; font-size:14px; }
+  #camMsg { font-size:13px; color:var(--muted); margin-top:8px; min-height:16px; }
+
+  /* slots */
+  .slots { display:flex; gap:10px; }
+  .slot { flex:1; border:2px dashed var(--line); border-radius:12px; padding:8px; text-align:center; cursor:pointer; }
+  .slot.sel { border-color:var(--acc); border-style:solid; box-shadow:0 0 0 2px var(--acc) inset; }
+  .slot.done { border-color:var(--ok); border-style:solid; }
+  .slot.fail { border-color:var(--err); border-style:solid; }
+  .slot .t { font-weight:700; font-size:14px; }
+  .slot .thumb { height:70px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px; overflow:hidden; border-radius:8px; background:rgba(127,127,127,.1); margin:6px 0; }
+  .slot .thumb img { max-width:100%; max-height:70px; }
+  .slot .st { font-size:12px; min-height:16px; }
+
+  .nav { display:flex; gap:8px; margin-top:12px; } .nav select { flex:1; } .nav button { width:48px; font-size:20px; }
+  #sendLine { font-size:13px; margin-top:10px; color:var(--muted); display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  label.chk { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--muted); margin-top:10px; }
+  #msg { font-size:13px; color:var(--err); min-height:16px; }
+  input[type=file] { display:none; }
 </style>
 </head>
 <body>
@@ -43,61 +70,83 @@
 <main>
   <div class="card" id="pairCard">
     <h2>Pair with your PC</h2>
-    <p id="pairHelp" style="margin:0 0 10px;color:var(--muted);font-size:14px;">Scan the QR code shown in the extension's “Capture from phone” window.</p>
+    <p id="pairHelp" class="muted" style="margin:0;">Scan the QR code shown in the extension's “Capture from phone” window.</p>
   </div>
 
   <div id="mainCard" class="hide">
     <div class="card">
+      <select id="lotSel" aria-label="Lot (job card)"></select>
+      <div class="prog"><div id="progBar"></div></div>
+      <div id="progTxt"></div>
+    </div>
+
+    <div class="card target" id="targetCard">
+      <div id="tKind">—</div>
+      <div id="tRow"></div>
+      <div id="tHuid"></div>
+    </div>
+
+    <div class="card">
+      <div id="camBox">
+        <video id="video" playsinline muted autoplay></video>
+        <div id="camPlaceholder">Camera is off</div>
+        <div id="flash"></div>
+      </div>
+      <div class="camrow">
+        <button class="round" id="btnFlip" aria-label="Switch camera" title="Switch camera">⟲</button>
+        <button class="shutter" id="shutter" aria-label="Take photo">●</button>
+        <button class="round" id="btnTorch" aria-label="Torch" title="Torch" hidden>🔦</button>
+        <button class="round" id="btnCam" aria-label="Camera on/off" title="Camera on/off">📷</button>
+      </div>
+      <div class="alt">
+        <button id="btnApp">📱 Use camera app</button>
+        <button id="btnGal">🖼 Gallery</button>
+      </div>
+      <div id="camMsg"></div>
+    </div>
+
+    <div class="card">
+      <div class="slots">
+        <div class="slot" id="slotA"><div class="t">🖼 Article</div><div class="thumb" id="thA"></div><div class="st" id="stA"></div></div>
+        <div class="slot" id="slotH"><div class="t">🔖 HUID</div><div class="thumb" id="thH"></div><div class="st" id="stH"></div></div>
+      </div>
       <div class="nav">
         <button id="prev" aria-label="Previous row">‹</button>
         <select id="rowSel" aria-label="Row"></select>
         <button id="next" aria-label="Next row">›</button>
       </div>
-      <div class="info" id="rowInfo"></div>
-      <div class="cap">
-        <div class="slot" id="slotA">
-          <div class="t">🖼 Article</div>
-          <div class="thumb" id="thA">no photo</div>
-          <div class="st" id="stA"></div>
-          <button class="primary" id="btnA">📷 Take photo</button>
-          <button class="gal" id="galA">choose from gallery</button>
-        </div>
-        <div class="slot" id="slotH">
-          <div class="t">🔖 HUID</div>
-          <div class="thumb" id="thH">no photo</div>
-          <div class="st" id="stH"></div>
-          <button class="primary" id="btnH">📷 Take photo</button>
-          <button class="gal" id="galH">choose from gallery</button>
-        </div>
-      </div>
-      <label class="chk" style="margin-top:12px;"><input type="checkbox" id="auto" checked> Go to next row when both photos are sent</label>
+      <div class="nav" style="margin-top:8px;"><button id="btnMissing" style="flex:1;width:auto;font-size:15px;">⏭ Jump to next missing photo</button></div>
+      <div id="sendLine"><span id="sendTxt"></span><button id="btnRetry" class="hide" style="padding:6px 10px;font-size:13px;">↻ Retry failed</button></div>
+      <label class="chk"><input type="checkbox" id="auto" checked> Auto-advance after each photo</label>
     </div>
     <div id="msg"></div>
   </div>
 </main>
 
-<input type="file" id="fcA" accept="image/*" capture="environment">
-<input type="file" id="fgA" accept="image/*">
-<input type="file" id="fcH" accept="image/*" capture="environment">
-<input type="file" id="fgH" accept="image/*">
+<input type="file" id="fApp" accept="image/*" capture="environment">
+<input type="file" id="fGal" accept="image/*">
+<canvas id="cv" class="hide"></canvas>
 
 <script>
 (() => {
   // Relay = Edge Function "mapu-api" in your Supabase project (private storage, per-session secrets).
   const API = 'https://fhtpagfnshficnwkuqpm.supabase.co/functions/v1/mapu-api';
   const $ = id => document.getElementById(id);
-  let sid = '', tok = '', rows = [], idx = 0, pollTimer = null, started = false;
-  const blobs = {};                  // "sno|kind" -> last JPEG blob (kept for retry)
-  const thumbs = {};                 // "sno|kind" -> objectURL
-  const state = {};                  // "sno|kind" -> 'busy' | 'fail'
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const KIND_LABEL = { article: '🖼 ARTICLE photo', huid: '🔖 HUID photo' };
+
+  let sid = '', tok = '', rows = [], lot = '', cursor = 0, target = null, started = false, pollTimer = null;
+  const S = {};                         // "job|sno|kind" -> { st:'queued'|'sending'|'sent'|'fail', blob, thumb, err }
+  const keyOf = (job, sno, kind) => job + '|' + sno + '|' + kind;
+  const sendQ = []; let active = 0;
 
   function bar(t, cls) { const b = $('bar'); b.textContent = t; b.className = cls || ''; }
   function toast(t) { $('msg').textContent = t || ''; }
-  const key = (sno, kind) => sno + '|' + kind;
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  async function post(body, timeoutMs) {
-    const ac = new AbortController(), t = setTimeout(() => ac.abort(), timeoutMs || 20000);
+  // ---------- API ----------
+  async function post(body, ms) {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms || 20000);
     try {
       const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ac.signal });
       return await r.json();
@@ -117,129 +166,261 @@
       $('pairHelp').textContent = 'Open the extension on your PC → “📱 Capture from phone” and scan the QR code with this phone’s camera.';
       return;
     }
+    lot = new URLSearchParams(location.search).get('job') || '';       // Job No. comes from the URL
     bar('Connecting…');
     await refresh(true);
   }
   async function refresh(first) {
     try {
       const r = await post({ action: 'phone_init', session_id: sid, phone_token: tok }, 15000);
-      if (!r.ok) { bar((r.error || 'Session invalid') + '. Scan the QR code again.', 'err'); stopPoll(); return; }
+      if (!r.ok) { bar((r.error || 'Session invalid') + '. Scan the QR code again.', 'err'); clearInterval(pollTimer); started = false; return; }
       bar('✅ Connected', 'ok');
       $('pairCard').classList.add('hide'); $('mainCard').classList.remove('hide');
-      const cur = rows[idx] && rows[idx].sno;
-      rows = r.rows || [];
-      const keep = rows.findIndex(x => x.sno === cur);
-      idx = keep >= 0 ? keep : Math.min(idx, Math.max(0, rows.length - 1));
-      renderRows();
-      if (!started) { started = true; pollTimer = setInterval(() => refresh(false), 8000); }
+      rows = (r.rows || []).map(x => ({ job: x.job || '', sno: x.sno, tag: x.tag || '', huid: x.huid || '', item: x.item || '', a: !!x.a, h: !!x.h }));
+      const jobs = lots();
+      if (!jobs.includes(lot)) lot = jobs[0] || '';
+      if (!started) {
+        started = true;
+        pollTimer = setInterval(() => refresh(false), 8000);
+        if (localStorage.getItem('mapu_cam') !== '0') startCam();      // auto-start the live camera
+      }
+      if (first || !target) { cursor = 0; target = findNext(0); }
+      renderAll();
     } catch (e) {
       bar('Connection problem — retrying…', 'err');
       if (!started && first) setTimeout(() => refresh(true), 4000);
     }
   }
-  function stopPoll() { clearInterval(pollTimer); started = false; }
 
-  // ---------- rows ----------
-  function renderRows() {
-    const sel = $('rowSel');
-    sel.innerHTML = '';
-    toast(rows.length ? '' : 'No rows on the PC yet — open the HUID list page there and press “Scan Table & Match”, then “New QR”.');
-    rows.forEach((r, i) => {
-      const o = document.createElement('option');
-      o.value = i;
-      o.textContent = 'S No. ' + r.sno + (r.huid ? ' · ' + r.huid : '') + '  [' + (r.a ? 'A✓' : 'A–') + ' ' + (r.h ? 'H✓' : 'H–') + ']';
-      sel.appendChild(o);
-    });
-    sel.value = idx;
-    renderRow();
+  // ---------- lots / rows ----------
+  const lots = () => [...new Set(rows.map(r => r.job))];
+  const lotRows = () => rows.filter(r => r.job === lot);
+  const stOf = (r, kind) => (S[keyOf(r.job, r.sno, kind)] || {}).st;
+  const has = (r, kind) => (kind === 'huid' ? r.h : r.a) || ['queued', 'sending', 'sent'].includes(stOf(r, kind));
+
+  function findNext(from) {                       // first missing photo, Article before HUID, wrapping around the lot
+    const lr = lotRows(); if (!lr.length) return null;
+    for (let n = 0; n < lr.length; n++) {
+      const i = (from + n) % lr.length, r = lr[i];
+      if (!has(r, 'article')) return { job: r.job, sno: r.sno, kind: 'article' };
+      if (!has(r, 'huid')) return { job: r.job, sno: r.sno, kind: 'huid' };
+    }
+    return null;
   }
-  function renderRow() {
-    const r = rows[idx];
-    if (!r) { $('rowInfo').textContent = ''; return; }
-    $('rowSel').value = idx;
-    $('rowInfo').innerHTML = 'S No. <b>' + esc(r.sno) + '</b>' + (r.tag ? ' · Tag <b>' + esc(r.tag) + '</b>' : '') +
-      (r.huid ? ' · HUID <b>' + esc(r.huid) + '</b>' : '') + (r.item ? ' · ' + esc(r.item) : '') + '  (' + (idx + 1) + '/' + rows.length + ')';
+  function setTarget(t) {
+    target = t;
+    if (t) { const i = lotRows().findIndex(r => r.sno === t.sno); if (i >= 0) cursor = i; }
+    renderAll();
+  }
+  const rowOfTarget = () => target && rows.find(r => r.job === target.job && r.sno === target.sno);
+
+  // ---------- render ----------
+  function renderAll() { renderLots(); renderTarget(); renderSlots(); renderRowSel(); renderSend(); }
+
+  function renderLots() {
+    const sel = $('lotSel'), jobs = lots();
+    sel.innerHTML = '';
+    for (const j of jobs) {
+      const lr = rows.filter(r => r.job === j);
+      const done = lr.filter(r => has(r, 'article') && has(r, 'huid')).length;
+      const o = document.createElement('option');
+      o.value = j; o.textContent = (j ? 'Job ' + j : '(no job no.)') + ' — ' + done + '/' + lr.length + ' rows done';
+      sel.appendChild(o);
+    }
+    sel.value = lot;
+    document.title = (lot ? 'Job ' + lot + ' — ' : '') + 'MANAK Phone Capture';
+    const lr = lotRows(), total = lr.length * 2;
+    const n = lr.reduce((a, r) => a + (has(r, 'article') ? 1 : 0) + (has(r, 'huid') ? 1 : 0), 0);
+    $('progBar').style.width = total ? (100 * n / total) + '%' : '0%';
+    $('progTxt').textContent = total ? n + ' / ' + total + ' photos captured in this lot' : 'No rows in this lot yet — Scan Table & Match on the PC, then “New QR”.';
+  }
+  function renderTarget() {
+    const card = $('targetCard'), r = rowOfTarget();
+    if (!target || !r) {
+      card.classList.add('done');
+      $('tKind').textContent = lotRows().length ? '🎉 Lot complete' : '—';
+      $('tRow').textContent = lotRows().length ? 'All photos for this lot are captured.' : '';
+      $('tHuid').textContent = '';
+      const other = lots().find(j => j !== lot && rows.some(r2 => r2.job === j && (!has(r2, 'article') || !has(r2, 'huid'))));
+      if (other !== undefined && lotRows().length) $('tRow').innerHTML = 'All photos for this lot are captured. Next lot: <b>' + esc(other ? 'Job ' + other : '(no job no.)') + '</b> — pick it above.';
+      return;
+    }
+    card.classList.remove('done');
+    $('tKind').textContent = KIND_LABEL[target.kind];
+    $('tRow').textContent = 'S No. ' + r.sno + (r.tag ? ' · Tag ' + r.tag : '') + (r.item ? ' · ' + r.item : '');
+    $('tHuid').textContent = r.huid || '';
+  }
+  function renderSlots() {
+    const r = rowOfTarget() || lotRows()[cursor];
     for (const [kind, L] of [['article', 'A'], ['huid', 'H']]) {
-      const k = key(r.sno, kind), has = kind === 'huid' ? r.h : r.a, st = state[k];
-      $('slot' + L).className = 'slot' + (st === 'busy' ? ' busy' : st === 'fail' ? ' fail' : has ? ' done' : '');
-      $('th' + L).innerHTML = thumbs[k] ? '<img src="' + thumbs[k] + '">' : (has ? '✓ already on PC' : 'no photo');
-      $('st' + L).textContent = st === 'busy' ? 'Sending…' : st === 'fail' ? 'Not sent — tap Retry' : has ? 'Sent ✓' : '';
-      $('btn' + L).textContent = st === 'fail' && blobs[k] ? '↻ Retry send' : (has ? '📷 Retake' : '📷 Take photo');
+      const slot = $('slot' + L), th = $('th' + L), st = $('st' + L);
+      if (!r) { slot.className = 'slot'; th.textContent = ''; st.textContent = ''; continue; }
+      const e = S[keyOf(r.job, r.sno, kind)], flag = kind === 'huid' ? r.h : r.a;
+      slot.className = 'slot' + (target && target.sno === r.sno && target.kind === kind ? ' sel' : '') + (e && e.st === 'fail' ? ' fail' : (flag || (e && e.st === 'sent')) ? ' done' : '');
+      th.innerHTML = e && e.thumb ? '<img src="' + e.thumb + '">' : (flag ? '✓ on PC' : 'no photo');
+      st.textContent = !e ? (flag ? 'Saved ✓' : '') : e.st === 'queued' ? 'Waiting…' : e.st === 'sending' ? 'Sending…' : e.st === 'sent' ? 'Sent ✓' : 'Failed ✗';
     }
   }
-  function go(n) { if (!rows.length) return; idx = (n + rows.length) % rows.length; renderRow(); }
-  $('prev').onclick = () => go(idx - 1);
-  $('next').onclick = () => go(idx + 1);
-  $('rowSel').onchange = e => go(Number(e.target.value));
-
-  // ---------- capture ----------
-  function openPicker(kind, camera) {
-    const r = rows[idx]; if (!r) { toast('No row selected.'); return; }
-    const k = key(r.sno, kind);
-    if (camera && state[k] === 'fail' && blobs[k]) { upload(kind, r.sno, blobs[k]); return; }   // retry the stored photo
-    const id = (camera ? 'fc' : 'fg') + (kind === 'huid' ? 'H' : 'A');
-    $(id).value = ''; $(id).click();
+  function renderRowSel() {
+    const sel = $('rowSel'), lr = lotRows();
+    sel.innerHTML = '';
+    lr.forEach((r, i) => {
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = 'S No. ' + r.sno + (r.huid ? ' · ' + r.huid : '') + '  [' + (has(r, 'article') ? 'A✓' : 'A–') + ' ' + (has(r, 'huid') ? 'H✓' : 'H–') + ']';
+      sel.appendChild(o);
+    });
+    sel.value = Math.min(cursor, Math.max(0, lr.length - 1));
   }
-  $('btnA').onclick = () => openPicker('article', true);
-  $('btnH').onclick = () => openPicker('huid', true);
-  $('galA').onclick = () => openPicker('article', false);
-  $('galH').onclick = () => openPicker('huid', false);
-  [['fcA', 'article'], ['fgA', 'article'], ['fcH', 'huid'], ['fgH', 'huid']].forEach(([id, kind]) => {
-    $(id).onchange = e => { const f = e.target.files && e.target.files[0]; if (f) prepareAndSend(kind, f); };
+  function renderSend() {
+    const v = Object.values(S);
+    const sending = v.filter(e => e.st === 'queued' || e.st === 'sending').length, failed = v.filter(e => e.st === 'fail').length;
+    $('sendTxt').textContent = sending ? '⬆ Sending ' + sending + '…' : failed ? '' : (v.length ? '✓ All sent' : '');
+    $('sendTxt').style.color = failed ? 'var(--err)' : '';
+    if (failed) $('sendTxt').textContent = '✗ ' + failed + ' not sent' + (sending ? ' · ⬆ ' + sending + ' sending' : '');
+    $('btnRetry').classList.toggle('hide', !failed);
+  }
+
+  // ---------- navigation ----------
+  $('lotSel').onchange = e => {
+    lot = e.target.value; cursor = 0; target = findNext(0);
+    try { const u = new URL(location.href); if (lot) u.searchParams.set('job', lot); else u.searchParams.delete('job'); history.replaceState(null, '', u); } catch (x) {}
+    renderAll();
+  };
+  const goRow = n => { const lr = lotRows(); if (!lr.length) return; cursor = (n + lr.length) % lr.length; const r = lr[cursor];
+    setTarget(!has(r, 'article') ? { job: r.job, sno: r.sno, kind: 'article' } : !has(r, 'huid') ? { job: r.job, sno: r.sno, kind: 'huid' } : { job: r.job, sno: r.sno, kind: 'article' }); };
+  $('prev').onclick = () => goRow(cursor - 1);
+  $('next').onclick = () => goRow(cursor + 1);
+  $('rowSel').onchange = e => goRow(Number(e.target.value));
+  $('btnMissing').onclick = () => { const t = findNext(cursor); if (t) setTarget(t); else toast('Nothing missing in this lot.'); };
+  $('slotA').onclick = () => pickSlot('article');
+  $('slotH').onclick = () => pickSlot('huid');
+  function pickSlot(kind) { const r = rowOfTarget() || lotRows()[cursor]; if (r) setTarget({ job: r.job, sno: r.sno, kind }); }
+
+  // ---------- live camera ----------
+  let stream = null, facing = 'environment', camWanted = false, wake = null;
+  const video = $('video');
+  function camMsg(t) { $('camMsg').textContent = t || ''; }
+  async function startCam() {
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { camMsg('Live camera not available here — use “Use camera app”.'); return false; }
+    stopCam(true);
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+      video.srcObject = stream; await video.play();
+      camWanted = true; localStorage.setItem('mapu_cam', '1');
+      $('camPlaceholder').classList.add('hide'); camMsg('');
+      const caps = (stream.getVideoTracks()[0] && stream.getVideoTracks()[0].getCapabilities) ? stream.getVideoTracks()[0].getCapabilities() : {};
+      $('btnTorch').hidden = !caps.torch;
+      try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+      return true;
+    } catch (e) {
+      stream = null; $('camPlaceholder').classList.remove('hide');
+      camMsg('Camera unavailable (' + (e.name || 'error') + '). Allow camera access, or use “Use camera app”.');
+      return false;
+    }
+  }
+  function stopCam(silent) {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    video.srcObject = null; $('camPlaceholder').classList.remove('hide');
+    if (wake) { try { wake.release(); } catch (e) {} wake = null; }
+    if (!silent) { camWanted = false; localStorage.setItem('mapu_cam', '0'); }
+  }
+  $('btnCam').onclick = () => { stream ? stopCam(false) : startCam(); };
+  $('btnFlip').onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; if (stream) startCam(); };
+  $('btnTorch').onclick = async () => {
+    try { const t = stream.getVideoTracks()[0]; const on = !(t.__torch); await t.applyConstraints({ advanced: [{ torch: on }] }); t.__torch = on; } catch (e) { camMsg('Torch not supported.'); }
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (stream) stopCam(true); }
+    else if (camWanted && !stream) startCam();
   });
 
-  // Shrink to long side ≤ 1600 px and re-encode as JPEG, honouring EXIF rotation.
+  function snap() {
+    const w0 = video.videoWidth, h0 = video.videoHeight;
+    if (!w0 || !h0) { toast('Camera not ready yet.'); return; }
+    const s = Math.min(1, 1600 / Math.max(w0, h0)), cv = $('cv');
+    cv.width = Math.round(w0 * s); cv.height = Math.round(h0 * s);
+    cv.getContext('2d').drawImage(video, 0, 0, cv.width, cv.height);
+    cv.toBlob(b => { if (b) onCapture(b); else toast('Could not capture.'); }, 'image/jpeg', 0.85);
+  }
+  function feedback() { const f = $('flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); try { navigator.vibrate && navigator.vibrate(25); } catch (e) {} }
+
+  $('shutter').onclick = () => {
+    if (!target) { toast(lotRows().length ? 'Lot complete — pick another lot or row.' : 'No rows yet.'); return; }
+    toast('');
+    if (stream) { feedback(); snap(); } else $('fApp').click();     // no live camera -> phone's camera app
+  };
+  $('btnApp').onclick = () => { if (!target) { toast('Nothing to capture.'); return; } $('fApp').value = ''; $('fApp').click(); };
+  $('btnGal').onclick = () => { if (!target) { toast('Nothing to capture.'); return; } $('fGal').value = ''; $('fGal').click(); };
+  for (const id of ['fApp', 'fGal']) $(id).onchange = async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    try { onCapture(await shrink(f, 1600, 0.85)); } catch (x) { toast('Error: ' + x.message); }
+  };
+
+  // Shrink a picked file to ≤1600 px JPEG, honouring EXIF rotation.
   async function shrink(file, maxSide, q) {
     let bmp;
     try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
-    catch (e) {
-      bmp = await new Promise((res, rej) => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; });
-    }
+    catch (e) { bmp = await new Promise((res, rej) => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; }); }
     const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
-    const s = Math.min(1, maxSide / Math.max(w0, h0));
-    const cv = document.createElement('canvas');
+    const s = Math.min(1, maxSide / Math.max(w0, h0)), cv = $('cv');
     cv.width = Math.round(w0 * s); cv.height = Math.round(h0 * s);
     cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
     return new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('encode failed')), 'image/jpeg', q));
   }
 
-  async function prepareAndSend(kind, file) {
-    const r = rows[idx]; if (!r) { toast('No row selected.'); return; }
-    const sno = r.sno, k = key(sno, kind);
-    state[k] = 'busy'; toast('');
-    try {
-      const jpeg = await shrink(file, 1600, 0.85);
-      blobs[k] = jpeg;
-      if (thumbs[k]) URL.revokeObjectURL(thumbs[k]);
-      thumbs[k] = URL.createObjectURL(jpeg);
-      renderRow();
-      await upload(kind, sno, jpeg);
-    } catch (e) { state[k] = 'fail'; toast('Error: ' + e.message); renderRow(); }
+  // ---------- capture → queue → send ----------
+  function onCapture(blob) {
+    const t = target; if (!t) return;
+    const k = keyOf(t.job, t.sno, t.kind);
+    if (S[k] && S[k].thumb) URL.revokeObjectURL(S[k].thumb);
+    S[k] = { st: 'queued', blob, thumb: URL.createObjectURL(blob), err: '' };
+    sendQ.push(k);
+    if ($('auto').checked) target = findNext(cursor); else target = t;     // Article → HUID → next row …
+    if (target) { const i = lotRows().findIndex(r => r.sno === target.sno); if (i >= 0) cursor = i; }
+    renderAll(); pump();
   }
-
-  async function upload(kind, sno, jpeg) {
-    const k = key(sno, kind);
-    state[k] = 'busy'; renderRow();
-    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 60000);
-    try {
-      const fd = new FormData();
-      fd.append('session_id', sid); fd.append('phone_token', tok);
-      fd.append('sno', sno); fd.append('kind', kind);
-      fd.append('file', jpeg, kind + '_' + sno + '.jpg');
-      const resp = await fetch(API, { method: 'POST', body: fd, signal: ac.signal });
-      const j = await resp.json();
-      if (!j.ok) throw new Error(j.error || ('HTTP ' + resp.status));
-      delete state[k];
-      const row = rows.find(x => x.sno === sno);
-      if (row) { if (kind === 'huid') row.h = true; else row.a = true; }
-      renderRows();
-      if ($('auto').checked && row && row.a && row.h && rows[idx] && rows[idx].sno === sno) go(idx + 1);
-    } catch (e) {
-      state[k] = 'fail';
-      toast(e.name === 'AbortError' ? 'Upload timed out — check signal and tap Retry.' : 'Not sent: ' + e.message);
-      renderRow();
-    } finally { clearTimeout(t); }
+  function pump() {
+    while (active < 2 && sendQ.length) {
+      const k = sendQ.shift(), e = S[k];
+      if (!e || e.st === 'sent' || e.st === 'sending') continue;
+      active++; send(k).finally(() => { active--; pump(); });
+    }
+    renderAll();
   }
+  async function send(k) {
+    const e = S[k], [job, sno, kind] = k.split('|');
+    e.st = 'sending'; renderSlots(); renderSend();
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const ac = new AbortController(), t = setTimeout(() => ac.abort(), 60000);
+      try {
+        const fd = new FormData();
+        fd.append('session_id', sid); fd.append('phone_token', tok);
+        fd.append('job', job); fd.append('sno', sno); fd.append('kind', kind);
+        fd.append('file', e.blob, kind + '_' + sno + '.jpg');
+        const resp = await fetch(API, { method: 'POST', body: fd, signal: ac.signal });
+        const j = await resp.json();
+        if (j.ok) {
+          e.st = 'sent'; e.err = '';
+          const row = rows.find(x => x.job === job && x.sno === sno);
+          if (row) { if (kind === 'huid') row.h = true; else row.a = true; }
+          return;
+        }
+        e.err = j.error || ('HTTP ' + resp.status);
+        if (resp.status === 401 || resp.status === 400 || resp.status === 413) break;     // retrying will not help
+      } catch (err) { e.err = err.name === 'AbortError' ? 'timeout' : (err.message || 'network'); }
+      finally { clearTimeout(t); }
+      if (attempt < 3) await sleep(1500 * attempt);
+    }
+    e.st = 'fail';
+    toast('Not sent: ' + e.err + ' — tap “Retry failed”.');
+  }
+  $('btnRetry').onclick = () => {
+    toast('');
+    for (const [k, e] of Object.entries(S)) if (e.st === 'fail') { e.st = 'queued'; sendQ.push(k); }
+    pump();
+  };
+  window.addEventListener('online', () => $('btnRetry').click());
 
   init();
 })();
