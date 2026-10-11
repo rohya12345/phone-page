@@ -35,7 +35,12 @@
   #tHuid { font:700 28px/1.2 ui-monospace,Consolas,monospace; letter-spacing:2px; margin-top:4px; }
 
   /* camera */
-  #camBox { position:relative; background:#000; border-radius:12px; overflow:hidden; aspect-ratio:4/3; max-height:52vh; width:100%; display:flex; align-items:center; justify-content:center; }
+  #camBox { position:relative; background:#000; border-radius:12px; overflow:hidden; margin:0 auto; width:100%; height:260px; display:flex; align-items:center; justify-content:center; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px; }
+  .chips .lab { font-size:12px; color:var(--muted); width:42px; }
+  .chips button { padding:6px 11px; font-size:13px; border-radius:16px; }
+  .chips button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
+  #noHuidNote { font-size:13px; color:var(--warn); text-align:center; margin-top:8px; }
   #video { width:100%; height:100%; object-fit:cover; }
   #camPlaceholder { position:absolute; color:#9aa7b8; font-size:14px; text-align:center; padding:12px; }
   #flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; }
@@ -87,6 +92,14 @@
     </div>
 
     <div class="card">
+      <div class="chips" id="ratioChips" role="group" aria-label="Photo shape">
+        <span class="lab">Shape</span>
+        <button data-r="1:1">1:1</button><button data-r="4:3">4:3</button><button data-r="3:4">3:4</button><button data-r="3:2">3:2</button><button data-r="16:9">16:9</button><button data-r="full">Full</button>
+      </div>
+      <div class="chips" id="sizeChips" role="group" aria-label="Photo size">
+        <span class="lab">Size</span>
+        <button data-s="actual">Actual size</button><button data-s="reduced">Reduced</button>
+      </div>
       <div id="camBox">
         <video id="video" playsinline muted autoplay></video>
         <div id="camPlaceholder">Camera is off</div>
@@ -110,6 +123,7 @@
         <div class="slot" id="slotA"><div class="t">🖼 Article</div><div class="thumb" id="thA"></div><div class="st" id="stA"></div></div>
         <div class="slot" id="slotH"><div class="t">🔖 HUID</div><div class="thumb" id="thH"></div><div class="st" id="stH"></div></div>
       </div>
+      <div id="noHuidNote" class="hide">ℹ No HUID for this row — only the Article photo is needed.</div>
       <div class="nav">
         <button id="prev" aria-label="Previous row">‹</button>
         <select id="rowSel" aria-label="Row"></select>
@@ -176,7 +190,7 @@
       if (!r.ok) { bar((r.error || 'Session invalid') + '. Scan the QR code again.', 'err'); clearInterval(pollTimer); started = false; return; }
       bar('✅ Connected', 'ok');
       $('pairCard').classList.add('hide'); $('mainCard').classList.remove('hide');
-      rows = (r.rows || []).map(x => ({ job: x.job || '', sno: x.sno, tag: x.tag || '', huid: x.huid || '', item: x.item || '', a: !!x.a, h: !!x.h }));
+      rows = (r.rows || []).map(x => ({ job: x.job || '', sno: x.sno, tag: x.tag || '', huid: x.huid || '', item: x.item || '', a: !!x.a, h: !!x.h, nh: !!x.nh }));
       const jobs = lots();
       if (!jobs.includes(lot)) lot = jobs[0] || '';
       if (!started) {
@@ -196,6 +210,7 @@
   const lots = () => [...new Set(rows.map(r => r.job))];
   const lotRows = () => rows.filter(r => r.job === lot);
   const stOf = (r, kind) => (S[keyOf(r.job, r.sno, kind)] || {}).st;
+  const rowDone = r => has(r, 'article') && (r.nh || has(r, 'huid'));    // Article-only rows (no HUID) need just the Article
   const has = (r, kind) => (kind === 'huid' ? r.h : r.a) || ['queued', 'sending', 'sent'].includes(stOf(r, kind));
 
   function findNext(from) {                       // first missing photo, Article before HUID, wrapping around the lot
@@ -203,7 +218,7 @@
     for (let n = 0; n < lr.length; n++) {
       const i = (from + n) % lr.length, r = lr[i];
       if (!has(r, 'article')) return { job: r.job, sno: r.sno, kind: 'article' };
-      if (!has(r, 'huid')) return { job: r.job, sno: r.sno, kind: 'huid' };
+      if (!r.nh && !has(r, 'huid')) return { job: r.job, sno: r.sno, kind: 'huid' };
     }
     return null;
   }
@@ -222,15 +237,15 @@
     sel.innerHTML = '';
     for (const j of jobs) {
       const lr = rows.filter(r => r.job === j);
-      const done = lr.filter(r => has(r, 'article') && has(r, 'huid')).length;
+      const done = lr.filter(rowDone).length;
       const o = document.createElement('option');
       o.value = j; o.textContent = (j ? 'Job ' + j : '(no job no.)') + ' — ' + done + '/' + lr.length + ' rows done';
       sel.appendChild(o);
     }
     sel.value = lot;
     document.title = (lot ? 'Job ' + lot + ' — ' : '') + 'MANAK Phone Capture';
-    const lr = lotRows(), total = lr.length * 2;
-    const n = lr.reduce((a, r) => a + (has(r, 'article') ? 1 : 0) + (has(r, 'huid') ? 1 : 0), 0);
+    const lr = lotRows(), total = lr.reduce((a, r) => a + (r.nh ? 1 : 2), 0);
+    const n = lr.reduce((a, r) => a + (has(r, 'article') ? 1 : 0) + (!r.nh && has(r, 'huid') ? 1 : 0), 0);
     $('progBar').style.width = total ? (100 * n / total) + '%' : '0%';
     $('progTxt').textContent = total ? n + ' / ' + total + ' photos captured in this lot' : 'No rows in this lot yet — Scan Table & Match on the PC, then “New QR”.';
   }
@@ -241,25 +256,28 @@
       $('tKind').textContent = lotRows().length ? '🎉 Lot complete' : '—';
       $('tRow').textContent = lotRows().length ? 'All photos for this lot are captured.' : '';
       $('tHuid').textContent = '';
-      const other = lots().find(j => j !== lot && rows.some(r2 => r2.job === j && (!has(r2, 'article') || !has(r2, 'huid'))));
+      const other = lots().find(j => j !== lot && rows.some(r2 => r2.job === j && !rowDone(r2)));
       if (other !== undefined && lotRows().length) $('tRow').innerHTML = 'All photos for this lot are captured. Next lot: <b>' + esc(other ? 'Job ' + other : '(no job no.)') + '</b> — pick it above.';
       return;
     }
     card.classList.remove('done');
     $('tKind').textContent = KIND_LABEL[target.kind];
     $('tRow').textContent = 'S No. ' + r.sno + (r.tag ? ' · Tag ' + r.tag : '') + (r.item ? ' · ' + r.item : '');
-    $('tHuid').textContent = r.huid || '';
+    $('tHuid').textContent = r.nh ? 'No HUID — Article only' : (r.huid || '');
   }
+  const fmtSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB';
   function renderSlots() {
     const r = rowOfTarget() || lotRows()[cursor];
     for (const [kind, L] of [['article', 'A'], ['huid', 'H']]) {
       const slot = $('slot' + L), th = $('th' + L), st = $('st' + L);
-      if (!r) { slot.className = 'slot'; th.textContent = ''; st.textContent = ''; continue; }
+      if (!r || (kind === 'huid' && r.nh)) { slot.className = 'slot'; th.textContent = ''; st.textContent = ''; continue; }
       const e = S[keyOf(r.job, r.sno, kind)], flag = kind === 'huid' ? r.h : r.a;
       slot.className = 'slot' + (target && target.sno === r.sno && target.kind === kind ? ' sel' : '') + (e && e.st === 'fail' ? ' fail' : (flag || (e && e.st === 'sent')) ? ' done' : '');
       th.innerHTML = e && e.thumb ? '<img src="' + e.thumb + '">' : (flag ? '✓ on PC' : 'no photo');
-      st.textContent = !e ? (flag ? 'Saved ✓' : '') : e.st === 'queued' ? 'Waiting…' : e.st === 'sending' ? 'Sending…' : e.st === 'sent' ? 'Sent ✓' : 'Failed ✗';
-    }
+      const sz = e && e.blob ? ' · ' + fmtSize(e.blob.size) : '';
+      st.textContent = !e ? (flag ? 'Saved ✓' : '') : e.st === 'queued' ? 'Waiting…' + sz : e.st === 'sending' ? 'Sending…' + sz : e.st === 'sent' ? 'Sent ✓' + sz : 'Failed ✗';
+    }    $('slotH').classList.toggle('hide', !!(r && r.nh));            // no HUID -> hide the HUID slot (after className resets above)
+    $('noHuidNote').classList.toggle('hide', !(r && r.nh));
   }
   function renderRowSel() {
     const sel = $('rowSel'), lr = lotRows();
@@ -267,7 +285,7 @@
     lr.forEach((r, i) => {
       const o = document.createElement('option');
       o.value = i;
-      o.textContent = 'S No. ' + r.sno + (r.huid ? ' · ' + r.huid : '') + '  [' + (has(r, 'article') ? 'A✓' : 'A–') + ' ' + (has(r, 'huid') ? 'H✓' : 'H–') + ']';
+      o.textContent = 'S No. ' + r.sno + (r.huid ? ' · ' + r.huid : '') + '  [' + (has(r, 'article') ? 'A✓' : 'A–') + ' ' + (r.nh ? 'no HUID' : has(r, 'huid') ? 'H✓' : 'H–') + ']';
       sel.appendChild(o);
     });
     sel.value = Math.min(cursor, Math.max(0, lr.length - 1));
@@ -288,24 +306,52 @@
     renderAll();
   };
   const goRow = n => { const lr = lotRows(); if (!lr.length) return; cursor = (n + lr.length) % lr.length; const r = lr[cursor];
-    setTarget(!has(r, 'article') ? { job: r.job, sno: r.sno, kind: 'article' } : !has(r, 'huid') ? { job: r.job, sno: r.sno, kind: 'huid' } : { job: r.job, sno: r.sno, kind: 'article' }); };
+    setTarget(!has(r, 'article') ? { job: r.job, sno: r.sno, kind: 'article' } : (!r.nh && !has(r, 'huid')) ? { job: r.job, sno: r.sno, kind: 'huid' } : { job: r.job, sno: r.sno, kind: 'article' }); };
   $('prev').onclick = () => goRow(cursor - 1);
   $('next').onclick = () => goRow(cursor + 1);
   $('rowSel').onchange = e => goRow(Number(e.target.value));
   $('btnMissing').onclick = () => { const t = findNext(cursor); if (t) setTarget(t); else toast('Nothing missing in this lot.'); };
   $('slotA').onclick = () => pickSlot('article');
   $('slotH').onclick = () => pickSlot('huid');
-  function pickSlot(kind) { const r = rowOfTarget() || lotRows()[cursor]; if (r) setTarget({ job: r.job, sno: r.sno, kind }); }
+  function pickSlot(kind) { const r = rowOfTarget() || lotRows()[cursor]; if (r && !(kind === 'huid' && r.nh)) setTarget({ job: r.job, sno: r.sno, kind }); }
 
   // ---------- live camera ----------
   let stream = null, facing = 'environment', camWanted = false, wake = null;
   const video = $('video');
+
+  // Shape (default 1:1) and size (default actual) — remembered on this phone.
+  const RATIOS = { '1:1': 1, '4:3': 4 / 3, '3:4': 3 / 4, '3:2': 3 / 2, '16:9': 16 / 9, 'full': 0 };
+  let ratio = localStorage.getItem('mapu_ratio'); if (!(ratio in RATIOS)) ratio = '1:1';
+  let sizeMode = localStorage.getItem('mapu_size') === 'reduced' ? 'reduced' : 'actual';
+  function renderChips() {
+    document.querySelectorAll('#ratioChips button').forEach(b => b.classList.toggle('on', b.dataset.r === ratio));
+    document.querySelectorAll('#sizeChips button').forEach(b => b.classList.toggle('on', b.dataset.s === sizeMode));
+  }
+  function layoutCam() {                           // viewfinder shows EXACTLY the area that will be captured
+    const box = $('camBox'), pw = Math.max(200, Math.min(box.parentElement.clientWidth - 24, 560));
+    const r = RATIOS[ratio] || ((video.videoWidth && video.videoHeight) ? video.videoWidth / video.videoHeight : 4 / 3);
+    const maxH = Math.max(220, window.innerHeight * 0.55);
+    let w = pw, hh = w / r;
+    if (hh > maxH) { hh = maxH; w = hh * r; }
+    box.style.width = Math.round(w) + 'px'; box.style.height = Math.round(hh) + 'px';
+  }
+  function cropRect(w0, h0) {                      // centre crop to the chosen shape (Full = no crop)
+    const r = RATIOS[ratio];
+    if (!r) return { sx: 0, sy: 0, sw: w0, sh: h0 };
+    if (w0 / h0 > r) { const sw = Math.round(h0 * r); return { sx: Math.round((w0 - sw) / 2), sy: 0, sw, sh: h0 }; }
+    const sh = Math.round(w0 / r); return { sx: 0, sy: Math.round((h0 - sh) / 2), sw: w0, sh };
+  }
+  document.querySelectorAll('#ratioChips button').forEach(b => b.onclick = () => { ratio = b.dataset.r; localStorage.setItem('mapu_ratio', ratio); renderChips(); layoutCam(); });
+  document.querySelectorAll('#sizeChips button').forEach(b => b.onclick = () => { sizeMode = b.dataset.s; localStorage.setItem('mapu_size', sizeMode); renderChips(); if (stream) startCam(); });
+  window.addEventListener('resize', layoutCam);
+  video.addEventListener('loadedmetadata', layoutCam);
   function camMsg(t) { $('camMsg').textContent = t || ''; }
   async function startCam() {
     if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { camMsg('Live camera not available here — use “Use camera app”.'); return false; }
     stopCam(true);
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+      const hi = sizeMode === 'actual';                               // actual size -> ask the camera for its highest resolution
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: hi ? 4096 : 1920 }, height: { ideal: hi ? 3072 : 1080 } }, audio: false });
       video.srcObject = stream; await video.play();
       camWanted = true; localStorage.setItem('mapu_cam', '1');
       $('camPlaceholder').classList.add('hide'); camMsg('');
@@ -338,10 +384,11 @@
   function snap() {
     const w0 = video.videoWidth, h0 = video.videoHeight;
     if (!w0 || !h0) { toast('Camera not ready yet.'); return; }
-    const s = Math.min(1, 1600 / Math.max(w0, h0)), cv = $('cv');
-    cv.width = Math.round(w0 * s); cv.height = Math.round(h0 * s);
-    cv.getContext('2d').drawImage(video, 0, 0, cv.width, cv.height);
-    cv.toBlob(b => { if (b) onCapture(b); else toast('Could not capture.'); }, 'image/jpeg', 0.85);
+    const c = cropRect(w0, h0), cv = $('cv');
+    const sc = sizeMode === 'actual' ? 1 : Math.min(1, 1600 / Math.max(c.sw, c.sh));
+    cv.width = Math.round(c.sw * sc); cv.height = Math.round(c.sh * sc);
+    cv.getContext('2d').drawImage(video, c.sx, c.sy, c.sw, c.sh, 0, 0, cv.width, cv.height);
+    cv.toBlob(b => { if (b) onCapture(b); else toast('Could not capture.'); }, 'image/jpeg', sizeMode === 'actual' ? 0.92 : 0.85);
   }
   function feedback() { const f = $('flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); try { navigator.vibrate && navigator.vibrate(25); } catch (e) {} }
 
@@ -354,19 +401,31 @@
   $('btnGal').onclick = () => { if (!target) { toast('Nothing to capture.'); return; } $('fGal').value = ''; $('fGal').click(); };
   for (const id of ['fApp', 'fGal']) $(id).onchange = async e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
-    try { onCapture(await shrink(f, 1600, 0.85)); } catch (x) { toast('Error: ' + x.message); }
+    try { onCapture(await processFile(f)); } catch (x) { toast('Error: ' + x.message); }
   };
 
-  // Shrink a picked file to ≤1600 px JPEG, honouring EXIF rotation.
-  async function shrink(file, maxSide, q) {
+  // Picked file (camera app / gallery): crop to the chosen shape; keep ACTUAL pixels (or ≤1600 px in Reduced mode).
+  // Full shape + actual size -> the original JPEG bytes are sent untouched.
+  async function processFile(file) {
+    if (!RATIOS[ratio] && sizeMode === 'actual' && file.type === 'image/jpeg') return file;
     let bmp;
     try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
     catch (e) { bmp = await new Promise((res, rej) => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; }); }
     const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
-    const s = Math.min(1, maxSide / Math.max(w0, h0)), cv = $('cv');
-    cv.width = Math.round(w0 * s); cv.height = Math.round(h0 * s);
+    const c = cropRect(w0, h0), cv = $('cv');
+    const sc = sizeMode === 'actual' ? 1 : Math.min(1, 1600 / Math.max(c.sw, c.sh));
+    cv.width = Math.round(c.sw * sc); cv.height = Math.round(c.sh * sc);
+    cv.getContext('2d').drawImage(bmp, c.sx, c.sy, c.sw, c.sh, 0, 0, cv.width, cv.height);
+    return new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('encode failed')), 'image/jpeg', sizeMode === 'actual' ? 0.92 : 0.85));
+  }
+
+  // Safety net for very large photos: re-encode smaller (long side 2400 px) if the relay refuses the size.
+  async function reduceBlob(blob) {
+    const bmp = await createImageBitmap(blob), cv = $('cv');
+    const sc = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+    cv.width = Math.round(bmp.width * sc); cv.height = Math.round(bmp.height * sc);
     cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
-    return new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('encode failed')), 'image/jpeg', q));
+    return new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('encode failed')), 'image/jpeg', 0.9));
   }
 
   // ---------- capture → queue → send ----------
@@ -407,8 +466,14 @@
           return;
         }
         e.err = j.error || ('HTTP ' + resp.status);
+        if ((resp.status === 413 || /size/i.test(e.err)) && !e.reduced) {                 // too big -> shrink once and retry
+          try { e.blob = await reduceBlob(e.blob); e.reduced = true; e.err = ''; attempt--; continue; } catch (x) {}
+        }
         if (resp.status === 401 || resp.status === 400 || resp.status === 413) break;     // retrying will not help
-      } catch (err) { e.err = err.name === 'AbortError' ? 'timeout' : (err.message || 'network'); }
+      } catch (err) {
+        e.err = err.name === 'AbortError' ? 'timeout' : (err.message || 'network');
+        if (!e.reduced && e.blob.size > 4e6) { try { e.blob = await reduceBlob(e.blob); e.reduced = true; attempt--; continue; } catch (x) {} }   // huge upload dropped -> try smaller
+      }
       finally { clearTimeout(t); }
       if (attempt < 3) await sleep(1500 * attempt);
     }
@@ -422,6 +487,7 @@
   };
   window.addEventListener('online', () => $('btnRetry').click());
 
+  renderChips(); layoutCam();
   init();
 })();
 </script>
