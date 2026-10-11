@@ -41,7 +41,13 @@
   .chips button { padding:6px 11px; font-size:13px; border-radius:16px; }
   .chips button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
   #noHuidNote { font-size:13px; color:var(--warn); text-align:center; margin-top:8px; }
-  #video { width:100%; height:100%; object-fit:cover; }
+  #video { width:100%; height:100%; object-fit:cover; transform-origin:center; will-change:transform; }
+  #camBox { touch-action:none; }
+  .zoomrow { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .zoomrow input[type=range] { flex:1; accent-color:var(--acc); height:28px; }
+  .zoomrow .zb { width:40px; height:40px; border-radius:50%; padding:0; font-size:20px; }
+  #zVal { min-width:48px; text-align:right; font-weight:700; font-size:14px; }
+  #zoomChips { justify-content:center; margin:8px 0 0; }
   #camPlaceholder { position:absolute; color:#9aa7b8; font-size:14px; text-align:center; padding:12px; }
   #flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; }
   #flash.on { animation:fl .25s; } @keyframes fl { 0%{opacity:.85} 100%{opacity:0} }
@@ -105,6 +111,13 @@
         <div id="camPlaceholder">Camera is off</div>
         <div id="flash"></div>
       </div>
+      <div class="zoomrow hide" id="zoomRow">
+        <button class="zb" id="zOut" aria-label="Zoom out">−</button>
+        <input type="range" id="zoom" min="1" max="4" step="0.1" value="1" aria-label="Zoom">
+        <button class="zb" id="zIn" aria-label="Zoom in">＋</button>
+        <span id="zVal">1.0×</span>
+      </div>
+      <div class="chips hide" id="zoomChips" role="group" aria-label="Zoom presets"></div>
       <div class="camrow">
         <button class="round" id="btnFlip" aria-label="Switch camera" title="Switch camera">⟲</button>
         <button class="shutter" id="shutter" aria-label="Take photo">●</button>
@@ -345,6 +358,44 @@
   document.querySelectorAll('#sizeChips button').forEach(b => b.onclick = () => { sizeMode = b.dataset.s; localStorage.setItem('mapu_size', sizeMode); renderChips(); if (stream) startCam(); });
   window.addEventListener('resize', layoutCam);
   video.addEventListener('loadedmetadata', layoutCam);
+
+  // ---------- zoom (hardware zoom when the phone offers it, otherwise digital) ----------
+  let zoom = 1, zMin = 1, zMax = 4, zStep = 0.1, hwZoom = false;
+  const clampZ = z => Math.min(zMax, Math.max(zMin, z));
+  const fmtZ = z => (Math.round(z * 10) / 10).toFixed(1) + '×';
+  function setZoomRange(caps) {
+    const zc = caps && caps.zoom;
+    if (zc && zc.max > zc.min) { hwZoom = true; zMin = zc.min; zMax = Math.min(zc.max, 10); zStep = zc.step || 0.1; }
+    else { hwZoom = false; zMin = 1; zMax = 4; zStep = 0.1; }
+    const sl = $('zoom'); sl.min = zMin; sl.max = zMax; sl.step = zStep;
+    const chips = $('zoomChips'); chips.innerHTML = '';
+    [1, 2, 3, 5].filter(p => p >= zMin && p <= zMax).forEach(p => {
+      const b = document.createElement('button'); b.textContent = p + '×'; b.dataset.z = p;
+      b.onclick = () => setZoom(p); chips.appendChild(b);
+    });
+    $('zoomRow').classList.remove('hide'); chips.classList.toggle('hide', !chips.children.length);
+    setZoom(zoom);                                   // keep the previous zoom when the camera restarts / flips
+  }
+  async function setZoom(z) {
+    zoom = clampZ(Number(z) || 1);
+    $('zoom').value = zoom; $('zVal').textContent = fmtZ(zoom);
+    document.querySelectorAll('#zoomChips button').forEach(b => b.classList.toggle('on', Math.abs(Number(b.dataset.z) - zoom) < 0.05));
+    if (hwZoom && stream) {
+      try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ zoom }] }); video.style.transform = 'none'; return; }
+      catch (e) { hwZoom = false; }                  // hardware zoom refused -> fall back to digital
+    }
+    video.style.transform = zoom > 1 ? 'scale(' + zoom + ')' : 'none';
+  }
+  $('zoom').oninput = e => setZoom(e.target.value);
+  $('zIn').onclick = () => setZoom(zoom + Math.max(zStep, 0.5));
+  $('zOut').onclick = () => setZoom(zoom - Math.max(zStep, 0.5));
+  // pinch to zoom on the viewfinder
+  const pts = new Map(); let pinchD = 0, pinchZ = 1;
+  const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  const camBoxEl = $('camBox');
+  camBoxEl.addEventListener('pointerdown', e => { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pts.size === 2) { pinchD = dist() || 1; pinchZ = zoom; } });
+  camBoxEl.addEventListener('pointermove', e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pts.size === 2) setZoom(pinchZ * dist() / pinchD); });
+  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) camBoxEl.addEventListener(t, e => pts.delete(e.pointerId));
   function camMsg(t) { $('camMsg').textContent = t || ''; }
   async function startCam() {
     if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { camMsg('Live camera not available here — use “Use camera app”.'); return false; }
@@ -357,6 +408,7 @@
       $('camPlaceholder').classList.add('hide'); camMsg('');
       const caps = (stream.getVideoTracks()[0] && stream.getVideoTracks()[0].getCapabilities) ? stream.getVideoTracks()[0].getCapabilities() : {};
       $('btnTorch').hidden = !caps.torch;
+      setZoomRange(caps);
       try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {}
       return true;
     } catch (e) {
@@ -368,6 +420,7 @@
   function stopCam(silent) {
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     video.srcObject = null; $('camPlaceholder').classList.remove('hide');
+    $('zoomRow').classList.add('hide'); $('zoomChips').classList.add('hide'); video.style.transform = 'none';
     if (wake) { try { wake.release(); } catch (e) {} wake = null; }
     if (!silent) { camWanted = false; localStorage.setItem('mapu_cam', '0'); }
   }
@@ -384,7 +437,12 @@
   function snap() {
     const w0 = video.videoWidth, h0 = video.videoHeight;
     if (!w0 || !h0) { toast('Camera not ready yet.'); return; }
-    const c = cropRect(w0, h0), cv = $('cv');
+    let c = cropRect(w0, h0);
+    if (!hwZoom && zoom > 1) {                       // digital zoom: capture exactly the centre area shown on screen
+      const nw = Math.round(c.sw / zoom), nh = Math.round(c.sh / zoom);
+      c = { sx: c.sx + Math.round((c.sw - nw) / 2), sy: c.sy + Math.round((c.sh - nh) / 2), sw: nw, sh: nh };
+    }
+    const cv = $('cv');
     const sc = sizeMode === 'actual' ? 1 : Math.min(1, 1600 / Math.max(c.sw, c.sh));
     cv.width = Math.round(c.sw * sc); cv.height = Math.round(c.sh * sc);
     cv.getContext('2d').drawImage(video, c.sx, c.sy, c.sw, c.sh, 0, 0, cv.width, cv.height);
