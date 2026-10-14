@@ -43,7 +43,20 @@
   #tRow { font-size:12px; opacity:.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #tHuid { font:700 24px/1.1 ui-monospace,Consolas,monospace; letter-spacing:2px; }
   #tHuid:empty { display:none; }
-  #tHuid.nh { font:700 14px/1.25 system-ui,sans-serif; letter-spacing:0; color:#ffb74d; margin-top:2px; }
+  #tHuid.nh { font:700 14px/1.25 system-ui,sans-serif; letter-spacing:0; color:#9a5b00; margin-top:2px; }
+  @media (prefers-color-scheme: dark) { #tHuid.nh { color:#ffb74d; } }
+  .tmid { cursor:pointer; }
+  #tKind::after { content:' ▾'; opacity:.7; }
+  .rsTools { display:flex; gap:8px; margin-bottom:6px; }
+  .rsTools input { flex:1; min-width:0; padding:10px; font-size:16px; border:1px solid var(--line); border-radius:10px; background:transparent; color:inherit; }
+  #rsList { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+  .rsItem { display:flex; align-items:center; gap:10px; text-align:left; padding:10px 12px; border-radius:12px; }
+  .rsItem b { white-space:nowrap; }
+  .rsItem .rsMeta { flex:1; min-width:0; font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rsItem .rsSt { font-weight:700; font-size:13px; white-space:nowrap; }
+  .rsItem.cur { border-color:var(--acc); box-shadow:0 0 0 2px var(--acc) inset; }
+  .rsItem.done .rsSt { color:var(--ok); }
+  #rsMsg { font-size:13px; color:var(--err); min-height:16px; }
 
   /* camera fills the free space */
   #camArea { position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; background:#0a0d12; margin-top:6px; }
@@ -79,9 +92,9 @@
   .slot .st { font-size:11px; min-height:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   /* menu (bottom sheet) */
-  #sheet { position:fixed; inset:0; z-index:20; }
-  #sheet .back { position:absolute; inset:0; background:rgba(0,0,0,.5); }
-  #sheet .panel { position:absolute; left:0; right:0; bottom:0; max-height:82dvh; max-height:82vh; overflow:auto; background:var(--card); border-radius:18px 18px 0 0; padding:14px 14px calc(18px + env(safe-area-inset-bottom)); max-width:640px; margin:0 auto; }
+  .sheet { position:fixed; inset:0; z-index:20; }
+  .sheet .back { position:absolute; inset:0; background:rgba(0,0,0,.5); }
+  .sheet .panel { position:absolute; left:0; right:0; bottom:0; max-height:82dvh; max-height:82vh; overflow:auto; background:var(--card); border-radius:18px 18px 0 0; padding:14px 14px calc(18px + env(safe-area-inset-bottom)); max-width:640px; margin:0 auto; }
   .sh { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-weight:700; }
   .sec { margin:12px 0 4px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
@@ -149,7 +162,7 @@
 </div>
 
 <!-- menu -->
-<div id="sheet" class="hide">
+<div id="sheet" class="sheet hide">
   <div class="back"></div>
   <div class="panel">
     <div class="sh"><span>Settings</span><button id="sheetClose">✕ Close</button></div>
@@ -184,6 +197,21 @@
     <div class="alt"><button id="btnApp">📱 Camera app</button><button id="btnGal">🖼 Gallery</button></div>
     <div id="camMsg"></div>
     <div id="msg"></div>
+  </div>
+</div>
+
+<!-- row picker: opens when you tap the yellow strip -->
+<div id="rowSheet" class="sheet hide">
+  <div class="back"></div>
+  <div class="panel">
+    <div class="sh"><span>Select row</span><button id="rsClose">✕ Close</button></div>
+    <div class="rsTools">
+      <input id="rsNo" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="Type S No. (e.g. 7)" autocomplete="off">
+      <button class="primary" id="rsGo">Go</button>
+    </div>
+    <div id="rsMsg"></div>
+    <label class="chk" style="margin-top:4px;"><input type="checkbox" id="rsMissing"> Show only rows with missing photos</label>
+    <div id="rsList"></div>
   </div>
 </div>
 
@@ -640,6 +668,42 @@
     pump();
   };
   window.addEventListener('online', () => $('btnRetry').click());
+
+  // ----- row picker (tap the yellow strip) -----
+  const rowSheet = $('rowSheet'), closeRow = () => rowSheet.classList.add('hide');
+  function renderRowList() {
+    const lr = lotRows(), only = $('rsMissing').checked, q = $('rsNo').value.trim().replace(/^0+(?=\d)/, '');
+    const cur = rowOfTarget(), list = $('rsList');
+    list.innerHTML = '';
+    lr.forEach((r, i) => {
+      if (only && rowDone(r)) return;
+      if (q && !r.sno.startsWith(q)) return;
+      const b = document.createElement('button');
+      b.className = 'rsItem' + (cur && cur.sno === r.sno ? ' cur' : '') + (rowDone(r) ? ' done' : '');
+      const meta = [r.tag ? 'Tag ' + r.tag : '', r.item, r.nh ? 'no HUID' : r.huid].filter(Boolean).join(' · ');
+      b.innerHTML = '<b>S No. ' + esc(r.sno) + '</b><span class="rsMeta">' + esc(meta) + '</span><span class="rsSt">' +
+        (has(r, 'article') ? 'A✓' : 'A–') + (r.nh ? '' : ' ' + (has(r, 'huid') ? 'H✓' : 'H–')) + '</span>';
+      b.onclick = () => { closeRow(); goRow(i); };
+      list.appendChild(b);
+    });
+    if (!list.children.length) list.textContent = !lr.length ? 'No rows in this lot.' : q ? 'No row with S No. starting “' + q + '”.' : 'All rows are complete 🎉';
+    const c = list.querySelector('.cur'); if (c && !q) c.scrollIntoView({ block: 'center' });
+  }
+  function openRowSheet() { $('rsNo').value = ''; $('rsMsg').textContent = ''; renderRowList(); rowSheet.classList.remove('hide'); }
+  document.querySelector('.tmid').onclick = openRowSheet;
+  $('rsClose').onclick = closeRow;
+  rowSheet.querySelector('.back').onclick = closeRow;
+  $('rsMissing').onchange = renderRowList;
+  $('rsNo').oninput = () => { $('rsMsg').textContent = ''; renderRowList(); };
+  function rsGo() {                                  // type a number -> jump straight to that row
+    const v = $('rsNo').value.trim().replace(/^0+(?=\d)/, ''), lr = lotRows();
+    let i = lr.findIndex(r => r.sno === v);
+    if (i < 0 && v) i = lr.findIndex(r => r.sno.startsWith(v));
+    if (i < 0) { $('rsMsg').textContent = v ? 'No row with S No. ' + v + ' in this lot.' : 'Type an S No. or tap a row below.'; return; }
+    closeRow(); goRow(i);
+  }
+  $('rsGo').onclick = rsGo;
+  $('rsNo').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); rsGo(); } };
 
   const sheet = $('sheet'), closeSheet = () => sheet.classList.add('hide');
   $('btnMore').onclick = () => sheet.classList.remove('hide');

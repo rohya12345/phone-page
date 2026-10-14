@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MANAK Desktop Capture</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root { color-scheme: light dark; --bg:#eef1f6; --panel:#ffffff; --ink:#1b2433; --muted:#667489; --line:#d9e0ea; --acc:#2d5bd7; --accink:#fff; --ok:#2e7d32; --err:#c62828; --warn:#b26a00; --hi:#fff3c4; --hiline:#e6c75a; --cam:#0b0e14; }
+  :root[data-theme="dark"] { color-scheme: dark; --bg:#0f131a; --panel:#181e28; --ink:#e6ebf2; --muted:#93a1b5; --line:#2a3342; --acc:#4b7bef; --hi:#463b12; --hiline:#8a7021; }
+  :root[data-theme="light"] { color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f131a; --panel:#181e28; --ink:#e6ebf2; --muted:#93a1b5; --line:#2a3342; --acc:#4b7bef; --hi:#463b12; --hiline:#8a7021; } }
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; }
+  body { font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); overflow:hidden; }
+  button, select, input { font:inherit; color:inherit; }
+  button { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 12px; cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  button:disabled { opacity:.5; cursor:default; }
+  button.primary { background:var(--acc); color:var(--accink); border-color:var(--acc); }
+  button.on { background:var(--acc); color:var(--accink); border-color:var(--acc); }
+  select, input[type=text], input[type=number], input[type=search] { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:6px 8px; min-width:0; }
+  input[type=range] { accent-color:var(--acc); width:100%; }
+  kbd { background:var(--bg); border:1px solid var(--line); border-bottom-width:2px; border-radius:5px; padding:0 6px; font:12px ui-monospace,Consolas,monospace; }
+  .hide { display:none !important; } .muted { color:var(--muted); } .small { font-size:12px; }
+
+  #app { display:grid; grid-template-rows:auto 1fr; height:100vh; }
+  header { display:flex; align-items:center; gap:12px; padding:8px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:15px; margin:0; white-space:nowrap; }
+  #lotSel { min-width:200px; max-width:300px; }
+  #prog { flex:1; min-width:140px; max-width:360px; }
+  #progBar { height:8px; border-radius:5px; background:rgba(127,127,127,.25); overflow:hidden; } #progFill { height:100%; width:0; background:var(--ok); transition:width .3s; }
+  #progTxt { font-size:12px; color:var(--muted); margin-top:2px; }
+  #pill { padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; background:#fff3cd; color:var(--warn); white-space:nowrap; }
+  #pill.ok { background:#e3f4e4; color:var(--ok); } #pill.err { background:#fde5e3; color:var(--err); }
+  .sp { flex:1; }
+
+  #grid { display:grid; grid-template-columns:300px minmax(0,1fr) 350px; min-height:0; }
+  aside { background:var(--panel); min-height:0; display:flex; flex-direction:column; }
+  #left { border-right:1px solid var(--line); } #right { border-left:1px solid var(--line); overflow:auto; }
+  .ph { padding:10px 12px; border-bottom:1px solid var(--line); font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+
+  /* rows */
+  #rowTools { padding:8px 10px; display:grid; gap:6px; border-bottom:1px solid var(--line); }
+  #rowQ { width:100%; }
+  .seg { display:flex; gap:4px; flex-wrap:wrap; } .seg button { padding:3px 9px; font-size:12px; border-radius:12px; }
+  #rowList { overflow:auto; flex:1; min-height:0; }
+  .row { display:flex; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .row:hover { background:rgba(127,127,127,.09); }
+  .row.cur { background:var(--hi); box-shadow:inset 3px 0 0 var(--acc); } .row.done .rn { color:var(--ok); }
+  .rn { width:34px; font-weight:800; font-size:15px; text-align:right; }
+  .rm { flex:1; min-width:0; } .rm > div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hu { font:12px ui-monospace,Consolas,monospace; color:var(--muted); } .tag { color:var(--muted); font-size:12px; }
+  .rs { display:flex; gap:4px; }
+  .chip { font-size:11px; font-weight:700; padding:1px 6px; border-radius:9px; background:rgba(127,127,127,.18); }
+  .chip.ok { background:#dff2e0; color:var(--ok); } .chip.bad { background:#fbdcda; color:var(--err); } .chip.wait { background:#fff0c9; color:var(--warn); }
+  .empty { padding:18px; text-align:center; color:var(--muted); }
+
+  /* centre */
+  #center { display:flex; flex-direction:column; min-width:0; min-height:0; padding:10px 14px; gap:10px; }
+  #banner { display:flex; align-items:center; gap:12px; padding:8px 12px; background:var(--hi); border:1px solid var(--hiline); border-radius:12px; }
+  #banner.done { background:#e6f4e7; border-color:#9ccc9f; color:#1b5e20; }
+  #tKind { font-size:20px; font-weight:800; white-space:nowrap; } #tRow { font-size:13px; } #tHuid { font:800 28px/1.1 ui-monospace,Consolas,monospace; letter-spacing:3px; margin-left:auto; text-align:right; }
+  #tHuid.nh { font:700 14px/1.2 system-ui; letter-spacing:0; color:var(--warn); }
+  .tabs { display:flex; gap:6px; } .tabs button { border-radius:8px 8px 0 0; }
+  #paneCam, #paneImp { flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; }
+  #viewWrap { flex:1; min-height:0; background:var(--cam); border-radius:12px; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; }
+  #vbox { position:relative; }
+  #view { width:100%; height:100%; display:block; cursor:grab; touch-action:none; } #view.drag { cursor:grabbing; }
+  #gridOv, #cdOv, #flash { position:absolute; inset:0; pointer-events:none; }
+  #cdOv { display:flex; align-items:center; justify-content:center; font-size:120px; font-weight:800; color:#fff; text-shadow:0 2px 12px #000; }
+  #flash { background:#fff; opacity:0; } #flash.on { animation:fl .25s; } @keyframes fl { 0%{opacity:.85} 100%{opacity:0} }
+  #hud { position:absolute; left:10px; bottom:8px; font-size:12px; color:#cfd8e6; background:rgba(0,0,0,.5); padding:2px 8px; border-radius:8px; }
+  #camState { position:absolute; right:10px; top:8px; font-size:12px; color:#cfd8e6; background:rgba(0,0,0,.5); padding:2px 8px; border-radius:8px; }
+  #ctl { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:center; }
+  #ctl button, #ctl select { padding:6px 9px; }
+  #shutter { width:64px; height:64px; border-radius:50%; padding:0; background:#fff; border:6px solid var(--acc); font-size:0; }
+  #shutter:active { transform:scale(.94); }
+  .kindtog button { padding:8px 14px; font-weight:700; }
+  #slots { display:flex; gap:10px; }
+  .slot { flex:1; display:flex; gap:10px; align-items:center; padding:8px; border:2px dashed var(--line); border-radius:12px; background:var(--panel); min-width:0; }
+  .slot.sel { border-color:var(--acc); border-style:solid; } .slot.done { border-color:var(--ok); border-style:solid; } .slot.fail { border-color:var(--err); border-style:solid; }
+  .slot .th { width:78px; height:58px; border-radius:8px; background:rgba(127,127,127,.15); display:flex; align-items:center; justify-content:center; overflow:hidden; font-size:12px; color:var(--muted); cursor:zoom-in; flex:none; }
+  .slot .th img { max-width:100%; max-height:100%; }
+  .slot .t { font-weight:700; } .slot .st { font-size:12px; color:var(--muted); }
+  .slot .b { margin-left:auto; display:flex; gap:6px; }
+
+  /* import */
+  #drop { border:2px dashed var(--line); border-radius:12px; padding:22px; text-align:center; color:var(--muted); background:var(--panel); }
+  #drop.over { border-color:var(--acc); background:rgba(45,91,215,.08); color:var(--ink); }
+  #impWrap { flex:1; min-height:0; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; }
+  table { border-collapse:collapse; width:100%; } th, td { padding:5px 8px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; }
+  th { position:sticky; top:0; background:var(--panel); font-size:12px; color:var(--muted); z-index:1; }
+  td img { width:46px; height:34px; object-fit:cover; border-radius:5px; } td input[type=number] { width:76px; }
+  .okc { color:var(--ok); font-weight:700; } .badc { color:var(--err); font-weight:700; }
+
+  /* right options */
+  details { border-bottom:1px solid var(--line); } summary { padding:10px 12px; font-weight:700; cursor:pointer; }
+  .opt { padding:0 12px 12px; display:grid; gap:9px; }
+  .f { display:grid; gap:3px; } .f > label { font-size:12px; color:var(--muted); } .f.in { display:flex; align-items:center; gap:8px; } .f.in > label { color:var(--ink); font-size:13px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .rg { display:flex; gap:8px; align-items:center; } .rg output { min-width:44px; text-align:right; font-size:12px; color:var(--muted); }
+  #qList { max-height:220px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
+  .q { display:flex; gap:8px; align-items:center; padding:4px 8px; border-bottom:1px solid var(--line); font-size:12px; } .q:last-child { border-bottom:0; } .q .qn { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #log { height:130px; overflow:auto; background:#0e131b; color:#b7f5c0; font:11px/1.4 ui-monospace,Consolas,monospace; padding:6px; border-radius:8px; white-space:pre-wrap; margin:0; }
+
+  /* modals */
+  .modal { position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; }
+  .box { background:var(--panel); border-radius:14px; padding:16px; max-width:min(980px,94vw); max-height:92vh; overflow:auto; }
+  #edCanvas { max-width:100%; max-height:58vh; display:block; margin:0 auto; background:#000; border-radius:8px; }
+  #viewerImg { max-width:90vw; max-height:84vh; display:block; border-radius:8px; }
+  #sc { display:grid; grid-template-columns:auto 1fr auto 1fr; gap:6px 12px; align-items:center; }
+  #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:60; background:rgba(15,20,30,.92); color:#fff; padding:9px 16px; border-radius:10px; opacity:0; pointer-events:none; transition:opacity .2s; }
+  #toast.on { opacity:1; } #toast.err { background:#a02020; }
+  input[type=file] { display:none; }
+
+  @media (max-width:1100px) { #grid { grid-template-columns:240px minmax(0,1fr) 300px; } }
+  @media (max-width:860px) { body { overflow:auto; } #app { height:auto; } #grid { grid-template-columns:1fr; } #left, #right { border:0; max-height:360px; } #viewWrap { min-height:320px; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🖥 MANAK Desktop Capture</h1>
+    <select id="lotSel" title="Lot (job card)"></select>
+    <div id="prog"><div id="progBar"><div id="progFill"></div></div><div id="progTxt"></div></div>
+    <span id="pill">Starting…</span>
+    <span class="muted small" id="expTxt"></span>
+    <span class="sp"></span>
+    <button id="btnKeys" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>
+  </header>
+
+  <div id="grid">
+    <aside id="left">
+      <div class="ph"><span>Rows</span><span class="muted small" id="rowCount"></span></div>
+      <div id="rowTools">
+        <input id="rowQ" type="search" placeholder="Search S No. / HUID / tag / item  ( / )">
+        <div class="seg" id="rowFilter"><button data-f="all">All</button><button data-f="missing">Missing</button><button data-f="done">Done</button><button data-f="failed">Failed</button></div>
+      </div>
+      <div id="rowList"></div>
+    </aside>
+
+    <section id="center">
+      <div id="banner">
+        <div><div id="tKind">—</div><div id="tRow"></div></div>
+        <div id="tHuid"></div>
+      </div>
+
+      <div class="tabs"><button id="tabCam" class="on">📷 Camera</button><button id="tabImp">📁 Import files <span id="impBadge" class="chip hide">0</span></button></div>
+
+      <div id="paneCam">
+        <div id="viewWrap">
+          <div id="vbox">
+            <canvas id="view"></canvas>
+            <div id="gridOv"></div><div id="cdOv"></div><div id="flash"></div>
+          </div>
+          <div id="hud"></div><div id="camState">camera off</div>
+          <video id="video" playsinline muted style="display:none"></video>
+        </div>
+        <div id="ctl">
+          <button id="prev" title="Previous row (↑)">▲</button><button id="next" title="Next row (↓)">▼</button>
+          <span class="kindtog"><button id="kA" title="Article (A)">🖼 Article</button><button id="kH" title="HUID (H)">🔖 HUID</button></span>
+          <button id="shutter" title="Capture (Space)">●</button>
+          <button id="btnMissing" title="Next missing photo (N)">⏭ Missing</button>
+          <select id="ratioQuick" title="Shape ( [ ] )"></select>
+          <button id="btnCam" title="Camera on/off (C)">Start camera</button>
+          <button id="btnFull" title="Fullscreen (F)">⛶</button>
+        </div>
+      </div>
+
+      <div id="paneImp" class="hide">
+        <div id="drop">
+          <b>Drop photos, a folder or a ZIP here</b> — or <button id="impFiles">Choose files</button> <button id="impFolder">Choose folder</button> <button id="impZip">Choose ZIP</button>
+          <div class="small" style="margin-top:6px;">Names are matched automatically: <code>7.jpg</code> = S No. 7 Article · <code>7_huid.jpg</code> / <code>7-h.jpg</code> = HUID · <code>100168687_7.jpg</code> = job + S No. · you can also paste (<kbd>Ctrl</kbd>+<kbd>V</kbd>) a screenshot/photo for the selected row.</div>
+        </div>
+        <div id="impWrap"><table><thead><tr><th></th><th>File</th><th>Job</th><th>S No.</th><th>Type</th><th>Match</th><th></th></tr></thead><tbody id="impBody"></tbody></table><div id="impEmpty" class="empty">Nothing imported yet.</div></div>
+        <div class="rg"><button class="primary" id="impSend" disabled>Send matched (0)</button><button id="impClear">Clear list</button><span class="muted small" id="impInfo"></span></div>
+      </div>
+
+      <div id="slots">
+        <div class="slot" id="slotA"><div class="th" id="thA"></div><div><div class="t">🖼 Article</div><div class="st" id="stA"></div></div><div class="b"><button id="retakeA" title="Retake Article">Retake</button></div></div>
+        <div class="slot" id="slotH"><div class="th" id="thH"></div><div><div class="t">🔖 HUID</div><div class="st" id="stH"></div></div><div class="b"><button id="retakeH" title="Retake HUID">Retake</button></div></div>
+      </div>
+    </section>
+
+    <aside id="right">
+      <div class="ph">Options</div>
+
+      <details open><summary>📷 Camera</summary><div class="opt">
+        <div class="f"><label>Device</label><select id="devSel"></select></div>
+        <div class="f"><label>Resolution (ideal)</label><select id="resSel"><option value="auto">Maximum available</option><option value="640x480">640 × 480</option><option value="1280x720">1280 × 720 (HD)</option><option value="1920x1080">1920 × 1080 (Full HD)</option><option value="2560x1440">2560 × 1440</option><option value="3840x2160">3840 × 2160 (4K)</option></select></div>
+        <div class="f in"><input type="checkbox" id="optMirror"><label for="optMirror">Mirror image (preview + photo)</label></div>
+        <div class="two"><button id="rotL">⟲ Rotate −90°</button><button id="rotR">⟳ Rotate +90°</button></div>
+        <div class="f"><label>Zoom (also mouse wheel on the view)</label><div class="rg"><input type="range" id="zoomSl" min="1" max="6" step="0.05" value="1"><output id="zoomOut">1.0×</output></div></div>
+        <button id="zoomReset">Reset zoom &amp; position (0)</button>
+        <div class="small muted">Drag on the view to move the crop. Double-click to reset.</div>
+        <div id="camCaps"></div>
+      </div></details>
+
+      <details open><summary>▢ Shape &amp; guides</summary><div class="opt">
+        <div class="f"><label>Photo shape</label><select id="ratioSel"></select></div>
+        <div class="two f" id="customBox" style="display:none"><div class="f"><label>Width</label><input type="number" id="cw" min="1" max="99" step="1"></div><div class="f"><label>Height</label><input type="number" id="ch" min="1" max="99" step="1"></div></div>
+        <div class="f"><label>Guide overlay</label><select id="gridSel"><option value="off">None</option><option value="thirds">Rule of thirds</option><option value="center">Centre cross</option><option value="grid4">4 × 4 grid</option></select></div>
+      </div></details>
+
+      <details open><summary>🖼 Output</summary><div class="opt">
+        <div class="f"><label>Size</label><select id="sizeSel"><option value="actual">Actual size (camera pixels, no shrinking)</option><option value="reduced">Reduced (long side 1600 px)</option><option value="custom">Custom long side…</option></select></div>
+        <div class="f" id="maxBox" style="display:none"><label>Long side (px)</label><input type="number" id="maxSide" min="320" max="8000" step="10"></div>
+        <div class="f"><label>JPEG quality</label><div class="rg"><input type="range" id="quality" min="0.5" max="1" step="0.01"><output id="qualOut"></output></div></div>
+        <div class="f"><label>Imported files</label><select id="impProc"><option value="original">Send original (only convert non-JPEG)</option><option value="shape">Crop to the chosen shape / size</option></select></div>
+      </div></details>
+
+      <details open><summary>⚡ Capture behaviour</summary><div class="opt">
+        <div class="f"><label>Self-timer</label><select id="timerSel"><option value="0">Off</option><option value="2">2 s</option><option value="3">3 s</option><option value="5">5 s</option><option value="10">10 s</option></select></div>
+        <div class="f in"><input type="checkbox" id="optAuto"><label for="optAuto">Auto-advance to the next missing photo</label></div>
+        <div class="f in"><input type="checkbox" id="optReview"><label for="optReview">Review &amp; edit before sending</label></div>
+        <div class="f in"><input type="checkbox" id="optSound"><label for="optSound">Shutter sound</label></div>
+      </div></details>
+
+      <details><summary>⬆ Sending</summary><div class="opt">
+        <div class="two"><div class="f"><label>Parallel uploads</label><select id="concSel"><option>1</option><option>2</option><option>3</option><option>4</option></select></div><div class="f"><label>Attempts per photo</label><select id="triesSel"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div></div>
+        <div class="two"><button id="retryAll">↻ Retry failed</button><button id="clearSent">Clear sent</button></div>
+        <div id="qList"></div>
+        <div class="small muted">Unsent photos are kept in this browser and re-sent automatically; they are deleted after 24 h.</div>
+      </div></details>
+
+      <details><summary>🎨 Display &amp; data</summary><div class="opt">
+        <div class="f"><label>Theme</label><select id="themeSel"><option value="auto">Automatic</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+        <button id="resetOpts">Reset all settings</button>
+      </div></details>
+
+      <details><summary>🧾 Activity log</summary><div class="opt"><pre id="log"></pre><button id="copyLog">Copy log</button></div></details>
+    </aside>
+  </div>
+</div>
+
+<!-- review editor -->
+<div id="editor" class="modal hide"><div class="box">
+  <canvas id="edCanvas"></canvas>
+  <div class="rg" style="margin-top:10px;flex-wrap:wrap;">
+    <button id="edRotL">⟲</button><button id="edRotR">⟳</button><button id="edFlipH">↔ Flip</button><button id="edFlipV">↕ Flip</button>
+    <label class="small">Brightness <input type="range" id="edBr" min="0.5" max="1.6" step="0.02" value="1" style="width:130px"></label>
+    <label class="small">Contrast <input type="range" id="edCt" min="0.5" max="1.8" step="0.02" value="1" style="width:130px"></label>
+    <button id="edReset">Reset</button><span class="sp"></span>
+    <button id="edCancel">Retake (Esc)</button><button class="primary" id="edOk">Use photo (Enter)</button>
+  </div>
+</div></div>
+
+<div id="viewer" class="modal hide"><img id="viewerImg" alt=""></div>
+
+<div id="keys" class="modal hide"><div class="box">
+  <h3 style="margin-top:0">Keyboard shortcuts</h3>
+  <div id="sc">
+    <kbd>Space</kbd><span>Capture photo</span><kbd>↑</kbd> <kbd>↓</kbd><span>Previous / next row</span>
+    <kbd>A</kbd> / <kbd>H</kbd><span>Article / HUID photo</span><kbd>N</kbd><span>Jump to next missing photo</span>
+    <kbd>C</kbd><span>Camera on / off</span><kbd>F</kbd><span>Fullscreen camera</span>
+    <kbd>R</kbd><span>Rotate 90°</span><kbd>M</kbd><span>Mirror</span>
+    <kbd>[</kbd> <kbd>]</kbd><span>Previous / next shape</span><kbd>G</kbd><span>Cycle guide overlay</span>
+    <kbd>T</kbd><span>Cycle self-timer</span><kbd>+</kbd> <kbd>−</kbd><span>Zoom in / out</span>
+    <kbd>0</kbd><span>Reset zoom &amp; position</span><kbd>V</kbd> / <kbd>I</kbd><span>Camera tab / Import tab</span>
+    <kbd>/</kbd><span>Search rows</span><kbd>Ctrl</kbd>+<kbd>V</kbd><span>Paste a photo for the selected row</span>
+    <kbd>?</kbd><span>This help</span><kbd>Esc</kbd><span>Close windows</span>
+  </div>
+  <div style="text-align:right;margin-top:12px"><button id="keysClose">Close</button></div>
+</div></div>
+
+<div id="toast"></div>
+<input type="file" id="fFiles" accept="image/*" multiple>
+<input type="file" id="fFolder" webkitdirectory multiple>
+<input type="file" id="fZip" accept=".zip,application/zip">
+
+<script>
+(() => {
+  'use strict';
+  // Same relay as the phone page (Supabase Edge Function "mapu-api"; private storage; per-session secrets).
+  const API = 'https://fhtpagfnshficnwkuqpm.supabase.co/functions/v1/mapu-api';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const DAY = 24 * 3600 * 1000;
+  const fmtSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB';
+  const KIND_LABEL = { article: '🖼 ARTICLE photo', huid: '🔖 HUID photo' };
+
+  // ---------- options (remembered in this browser) ----------
+  const DEF = { ratio: '1:1', cw: 4, ch: 3, sizeMode: 'actual', maxSide: 2400, quality: 0.92, mirror: false, rot: 0, grid: 'off', timer: 0,
+    auto: true, review: false, sound: false, conc: 2, tries: 3, res: 'auto', deviceId: '', theme: 'auto', tab: 'cam', impProc: 'original', zoom: 1, panX: 0, panY: 0, filter: 'all' };
+  let O = Object.assign({}, DEF);
+  try { Object.assign(O, JSON.parse(localStorage.getItem('mapu_desk') || '{}')); } catch (e) {}
+  const saveO = () => { try { localStorage.setItem('mapu_desk', JSON.stringify(O)); } catch (e) {} };
+
+  const RATIOS = { '1:1': 1, '4:3': 4 / 3, '3:4': 3 / 4, '3:2': 3 / 2, '2:3': 2 / 3, '16:9': 16 / 9, '9:16': 9 / 16, '5:4': 5 / 4, '4:5': 4 / 5, 'full': 0, 'custom': -1 };
+  const RATIO_NAMES = { 'full': 'Full frame (no crop)', 'custom': 'Custom…' };
+  const ratioVal = () => (O.ratio === 'custom' ? Math.max(1, O.cw) / Math.max(1, O.ch) : RATIOS[O.ratio] || 0);
+  const ratioKeys = Object.keys(RATIOS);
+
+  // ---------- log / toast ----------
+  const logLines = [];
+  function log(m) { logLines.push(new Date().toLocaleTimeString() + '  ' + m); if (logLines.length > 300) logLines.shift(); const el = $('log'); el.textContent = logLines.join('\n'); el.scrollTop = el.scrollHeight; }
+  let toastT = null;
+  function toast(t, err) { const el = $('toast'); el.textContent = t; el.className = 'on' + (err ? ' err' : ''); clearTimeout(toastT); toastT = setTimeout(() => { el.className = ''; }, 3600); }
+  function pill(t, cls) { const p = $('pill'); p.textContent = t; p.className = cls || ''; }
+
+  // ---------- relay ----------
+  let sid = '', tok = '', rows = [], lot = '', cursor = 0, target = null, started = false, pollTimer = null, expiresAt = 0, restored = false;
+  const S = {};                              // "job|sno|kind" -> { st:'queued'|'sending'|'sent'|'fail', blob, thumb, err, size }
+  const keyOf = (job, sno, kind) => job + '|' + sno + '|' + kind;
+  const sendQ = []; let active = 0;
+
+  async function post(body, ms) {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms || 20000);
+    try {
+      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ac.signal });
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
+  function parseHash() {
+    const h = decodeURIComponent((location.hash || '').replace(/^#/, '')).trim(), i = h.indexOf('.');
+    return i > 0 ? { sid: h.slice(0, i), tok: h.slice(i + 1) } : { sid: '', tok: '' };
+  }
+  async function init() {
+    ({ sid, tok } = parseHash());
+    lot = new URLSearchParams(location.search).get('job') || '';
+    if (!sid || !tok) { pill('Not paired', 'err'); showUnpaired(); return; }
+    pill('Connecting…'); await refresh(true);
+  }
+  function showUnpaired() {
+    $('rowList').innerHTML = '<div class="empty">Not paired yet.<br><br>In the Chrome extension open <b>📱 Capture from phone</b> and press <b>🖥 Open on this computer</b>.</div>';
+  }
+  async function refresh(first) {
+    try {
+      const r = await post({ action: 'phone_init', session_id: sid, phone_token: tok }, 15000);
+      if (!r.ok) { pill('Session invalid', 'err'); toast((r.error || 'Session invalid') + ' — open the page again from the extension.', true); clearInterval(pollTimer); started = false; return; }
+      pill('Connected', 'ok');
+      expiresAt = r.expires_at ? new Date(r.expires_at).getTime() : 0;
+      rows = (r.rows || []).map(x => ({ job: x.job || '', sno: x.sno, tag: x.tag || '', huid: x.huid || '', item: x.item || '', a: !!x.a, h: !!x.h, nh: !!x.nh }));
+      const jobs = lots();
+      if (!jobs.includes(lot)) lot = jobs[0] || '';
+      if (!started) { started = true; pollTimer = setInterval(() => refresh(false), 8000); }
+      if (first || !target) { cursor = 0; target = findNext(0); }
+      renderAll();
+      if (!restored) { restored = true; restoreUnsent().then(renderAll); purgeOldUnsent(); }
+    } catch (e) {
+      pill('Connection problem — retrying…', 'err');
+      if (!started && first) setTimeout(() => refresh(true), 4000);
+    }
+  }
+
+  // ---------- rows / targets ----------
+  const lots = () => [...new Set(rows.map(r => r.job))];
+  const lotRows = () => rows.filter(r => r.job === lot);
+  const stOf = (r, kind) => (S[keyOf(r.job, r.sno, kind)] || {}).st;
+  const has = (r, kind) => (kind === 'huid' ? r.h : r.a) || ['queued', 'sending', 'sent'].includes(stOf(r, kind));
+  const rowDone = r => has(r, 'article') && (r.nh || has(r, 'huid'));
+  const rowOfTarget = () => target && rows.find(r => r.job === target.job && r.sno === target.sno);
+  const curRow = () => rowOfTarget() || lotRows()[cursor];
+
+  function findNext(from) {
+    const lr = lotRows(); if (!lr.length) return null;
+    for (let n = 0; n < lr.length; n++) {
+      const i = (from + n) % lr.length, r = lr[i];
+      if (!has(r, 'article')) return { job: r.job, sno: r.sno, kind: 'article' };
+      if (!r.nh && !has(r, 'huid')) return { job: r.job, sno: r.sno, kind: 'huid' };
+    }
+    return null;
+  }
+  function setTarget(t) { target = t; if (t) { const i = lotRows().findIndex(r => r.sno === t.sno); if (i >= 0) cursor = i; } renderAll(); }
+  function goRow(i) {
+    const lr = lotRows(); if (!lr.length) return;
+    cursor = (i + lr.length) % lr.length; const r = lr[cursor];
+    setTarget(!has(r, 'article') ? { job: r.job, sno: r.sno, kind: 'article' } : (!r.nh && !has(r, 'huid')) ? { job: r.job, sno: r.sno, kind: 'huid' } : { job: r.job, sno: r.sno, kind: 'article' });
+  }
+  function setKind(kind) { const r = curRow(); if (!r) return; if (kind === 'huid' && r.nh) { toast('This row has no HUID — Article only.', true); return; } setTarget({ job: r.job, sno: r.sno, kind }); }
+
+  // ---------- rendering ----------
+  function renderAll() { renderHeader(); renderRows(); renderBanner(); renderSlots(); renderQueue(); renderImportBadge(); }
+
+  function renderHeader() {
+    const sel = $('lotSel'), jobs = lots(); sel.innerHTML = '';
+    for (const j of jobs) {
+      const lr = rows.filter(r => r.job === j), done = lr.filter(rowDone).length;
+      const o = document.createElement('option'); o.value = j; o.textContent = (j ? 'Job ' + j : '(no job no.)') + ' · ' + done + '/' + lr.length + ' done'; sel.appendChild(o);
+    }
+    sel.value = lot;
+    document.title = (lot ? 'Job ' + lot + ' — ' : '') + 'MANAK Desktop Capture';
+    const lr = lotRows(), total = lr.reduce((a, r) => a + (r.nh ? 1 : 2), 0);
+    const n = lr.reduce((a, r) => a + (has(r, 'article') ? 1 : 0) + (!r.nh && has(r, 'huid') ? 1 : 0), 0);
+    $('progFill').style.width = total ? (100 * n / total) + '%' : '0%';
+    $('progTxt').textContent = total ? n + ' / ' + total + ' photos captured · ' + lr.filter(rowDone).length + ' / ' + lr.length + ' rows complete' : 'No rows in this lot yet — on the PC press Scan Table & Match, then New QR.';
+  }
+
+  function chip(r, kind, L) {
+    const e = S[keyOf(r.job, r.sno, kind)], flag = kind === 'huid' ? r.h : r.a;
+    let cls = '', t = L + '–';
+    if (e) { if (e.st === 'fail') { cls = 'bad'; t = L + '✗'; } else if (e.st === 'sent') { cls = 'ok'; t = L + '✓'; } else { cls = 'wait'; t = L + '…'; } }
+    else if (flag) { cls = 'ok'; t = L + '✓'; }
+    return '<span class="chip ' + cls + '">' + t + '</span>';
+  }
+  function renderRows() {
+    const q = $('rowQ').value.trim().toLowerCase(), f = O.filter || 'all', list = $('rowList'), frag = document.createDocumentFragment();
+    document.querySelectorAll('#rowFilter button').forEach(b => b.classList.toggle('on', b.dataset.f === f));
+    let n = 0; const all = lotRows();
+    all.forEach((r, i) => {
+      const done = rowDone(r), failedAny = ['article', 'huid'].some(k => stOf(r, k) === 'fail');
+      if (f === 'missing' && done) return; if (f === 'done' && !done) return; if (f === 'failed' && !failedAny) return;
+      if (q && !(r.sno.startsWith(q) || r.huid.toLowerCase().includes(q) || r.tag.toLowerCase().includes(q) || r.item.toLowerCase().includes(q))) return;
+      const el = document.createElement('div');
+      el.className = 'row' + (target && target.sno === r.sno && target.job === r.job ? ' cur' : '') + (done ? ' done' : ''); el.dataset.i = i;
+      el.innerHTML = '<div class="rn">' + esc(r.sno) + '</div><div class="rm"><div>' + esc(r.item || '—') + ' <span class="tag">' + esc(r.tag) + '</span></div><div class="hu">' +
+        (r.nh ? '<i>no HUID — Article only</i>' : esc(r.huid || '—')) + '</div></div><div class="rs">' + chip(r, 'article', 'A') + (r.nh ? '' : chip(r, 'huid', 'H')) + '</div>';
+      frag.appendChild(el); n++;
+    });
+    list.innerHTML = ''; list.appendChild(frag);
+    if (!n) list.innerHTML = '<div class="empty">' + (all.length ? 'No rows match.' : (sid ? 'No rows.' : '')) + '</div>';
+    $('rowCount').textContent = all.length ? n + ' / ' + all.length : '';
+    const c = list.querySelector('.cur'); if (c) c.scrollIntoView({ block: 'nearest' });
+  }
+
+  function renderBanner() {
+    const b = $('banner'), r = rowOfTarget();
+    $('kA').classList.toggle('on', !!target && target.kind === 'article'); $('kH').classList.toggle('on', !!target && target.kind === 'huid');
+    const cr = curRow(); $('kH').disabled = !!(cr && cr.nh);
+    if (!target || !r) {
+      b.classList.add('done');
+      $('tKind').textContent = lotRows().length ? '🎉 Lot complete' : '—';
+      $('tRow').textContent = lotRows().length ? 'All photos for this lot are captured. Pick another lot or a row to retake.' : 'No rows yet.';
+      $('tHuid').textContent = ''; $('tHuid').classList.remove('nh'); return;
+    }
+    b.classList.remove('done');
+    $('tKind').textContent = KIND_LABEL[target.kind];
+    $('tRow').textContent = 'S No. ' + r.sno + (r.tag ? ' · Tag ' + r.tag : '') + (r.item ? ' · ' + r.item : '') + (lots().length > 1 ? ' · Job ' + (r.job || '—') : '');
+    $('tHuid').textContent = r.nh ? 'No HUID — Article photo only' : (r.huid || ''); $('tHuid').classList.toggle('nh', !!r.nh);
+  }
+
+  function renderSlots() {
+    const r = curRow();
+    for (const [kind, L] of [['article', 'A'], ['huid', 'H']]) {
+      const slot = $('slot' + L), th = $('th' + L), st = $('st' + L);
+      if (!r || (kind === 'huid' && r.nh)) { slot.className = 'slot'; slot.style.opacity = r && r.nh ? .4 : 1; th.textContent = ''; st.textContent = r && r.nh && kind === 'huid' ? 'not needed (no HUID)' : ''; $('retake' + L).disabled = true; continue; }
+      slot.style.opacity = 1; $('retake' + L).disabled = false;
+      const e = S[keyOf(r.job, r.sno, kind)], flag = kind === 'huid' ? r.h : r.a;
+      slot.className = 'slot' + (target && target.sno === r.sno && target.kind === kind ? ' sel' : '') + (e && e.st === 'fail' ? ' fail' : (flag || (e && e.st === 'sent')) ? ' done' : '');
+      th.innerHTML = e && e.thumb ? '<img src="' + e.thumb + '" alt="">' : (flag ? '✓ on PC' : 'no photo'); th.dataset.src = e && e.thumb ? e.thumb : '';
+      st.textContent = !e ? (flag ? 'Saved ✓' : 'Not captured') : (e.st === 'queued' ? 'Waiting…' : e.st === 'sending' ? 'Sending…' : e.st === 'sent' ? 'Sent ✓' : 'Failed ✗ ' + (e.err || '')) + ' · ' + fmtSize(e.size || e.blob.size);
+    }
+  }
+
+  function renderQueue() {
+    const ent = Object.entries(S).filter(([, e]) => e.st !== 'sent').slice(-60).reverse(), box = $('qList');
+    box.innerHTML = ent.length ? '' : '<div class="q muted">Nothing waiting.</div>';
+    for (const [k, e] of ent) {
+      const [job, sno, kind] = k.split('|'), d = document.createElement('div'); d.className = 'q';
+      d.innerHTML = '<span class="qn">' + (job ? esc(job) + ' · ' : '') + 'S No. ' + esc(sno) + ' ' + (kind === 'huid' ? 'HUID' : 'Article') + '</span><span class="chip ' + (e.st === 'fail' ? 'bad' : 'wait') + '">' + (e.st === 'fail' ? 'failed' : e.st) + '</span>';
+      box.appendChild(d);
+    }
+  }
+
+  // ---------- geometry (one pipeline for preview, capture and imports) ----------
+  function geom(vw, vh, rot, zoom, panX, panY, r) {
+    const swap = rot === 90 || rot === 270, ew = swap ? vh : vw, eh = swap ? vw : vh;
+    let fw = ew, fh = eh;
+    if (r) { if (ew / eh > r) { fh = eh; fw = eh * r; } else { fw = ew; fh = ew / r; } }
+    const z = Math.max(1, zoom), cw = fw / z, ch = fh / z;
+    return { ew, eh, cw, ch, ccx: ew / 2 + panX * (ew - cw) / 2, ccy: eh / 2 + panY * (eh - ch) / 2 };
+  }
+  function drawFrame(ctx, src, vw, vh, g, s, rot, mirror) {
+    ctx.save();
+    ctx.translate(g.cw * s / 2, g.ch * s / 2); ctx.scale(s, s); ctx.translate(-g.ccx, -g.ccy);
+    ctx.translate(g.ew / 2, g.eh / 2); ctx.scale(mirror ? -1 : 1, 1); ctx.rotate(rot * Math.PI / 180);
+    ctx.drawImage(src, -vw / 2, -vh / 2, vw, vh);
+    ctx.restore();
+  }
+  const outScale = (cw, ch) => O.sizeMode === 'actual' ? 1 : Math.min(1, (O.sizeMode === 'reduced' ? 1600 : O.maxSide) / Math.max(cw, ch));
+  const toBlob = (cv, q) => new Promise(res => cv.toBlob(res, 'image/jpeg', q));
+
+  // ---------- camera ----------
+  const video = $('video');
+  let stream = null, track = null, hwZoom = false, camWanted = false, zoomRange = [1, 6], zoomUnit = 1;
+  const zoomDigital = () => (hwZoom ? 1 : O.zoom);
+  function camMsg(t, err) { $('camState').textContent = t; if (err) toast(t, true); }
+
+  async function listDevices() {
+    try {
+      const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput'), sel = $('devSel');
+      sel.innerHTML = '<option value="">Default camera</option>';
+      devs.forEach((d, i) => { const o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || 'Camera ' + (i + 1); sel.appendChild(o); });
+      sel.value = O.deviceId;
+      if (sel.value !== O.deviceId) sel.value = '';
+    } catch (e) {}
+  }
+  async function startCam() {
+    stopCam(true);
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { camMsg('Camera needs HTTPS (or localhost)', true); return false; }
+    let v = { width: { ideal: 4096 }, height: { ideal: 2160 } };
+    if (O.res !== 'auto') { const [w, h] = O.res.split('x').map(Number); v = { width: { ideal: w }, height: { ideal: h } }; }
+    if (O.deviceId) v.deviceId = { exact: O.deviceId };
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: v, audio: false }); }
+    catch (e) {
+      if (O.deviceId && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError')) { O.deviceId = ''; saveO(); return startCam(); }
+      camMsg('Camera unavailable (' + (e.name || 'error') + ') — allow camera access', true); return false;
+    }
+    video.srcObject = stream; try { await video.play(); } catch (e) {}
+    track = stream.getVideoTracks()[0]; camWanted = true; $('btnCam').textContent = 'Stop camera';
+    await listDevices(); buildCamControls();
+    camMsg((track.label || 'camera') + ' · ' + video.videoWidth + '×' + video.videoHeight);
+    log('Camera on: ' + (track.label || '?') + ' ' + video.videoWidth + '×' + video.videoHeight);
+    layoutView(); return true;
+  }
+  function stopCam(silent) {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null; track = null; hwZoom = false; $('btnCam').textContent = 'Start camera'; $('camCaps').innerHTML = '';
+    if (!silent) { camWanted = false; camMsg('camera off'); log('Camera off'); }
+  }
+  $('btnCam').onclick = () => (stream ? stopCam(false) : startCam());
+
+  // sliders / selects for whatever this particular camera supports
+  function buildCamControls() {
+    const box = $('camCaps'); box.innerHTML = ''; hwZoom = false;
+    let caps = {}; try { caps = track.getCapabilities ? track.getCapabilities() : {}; } catch (e) {}
+    zoomUnit = 1;
+    if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+      hwZoom = true;
+      if (caps.zoom.min >= 10) { zoomUnit = caps.zoom.min; zoomRange = [1, Math.min(caps.zoom.max / zoomUnit, 12)]; }      // USB webcams report zoom in percent (100–500)
+      else zoomRange = [caps.zoom.min, Math.min(caps.zoom.max, 12)];                                                         // phones: 1–10
+    } else zoomRange = [1, 6];
+    const zs = $('zoomSl'); zs.min = zoomRange[0]; zs.max = zoomRange[1]; zs.step = hwZoom ? Math.max(0.02, (caps.zoom.step || 0.1) / zoomUnit) : 0.05; setZoom(Math.max(zoomRange[0], O.zoom));
+    const apply = (name, val) => { try { track.applyConstraints({ advanced: [{ [name]: val }] }); } catch (e) {} };
+    const sliders = [['brightness', 'Brightness'], ['contrast', 'Contrast'], ['saturation', 'Saturation'], ['sharpness', 'Sharpness'], ['exposureCompensation', 'Exposure comp.'], ['colorTemperature', 'White-balance temp.'], ['focusDistance', 'Focus distance']];
+    let st = {}; try { st = track.getSettings ? track.getSettings() : {}; } catch (e) {}
+    for (const [k, label] of sliders) {
+      const c = caps[k]; if (!c || typeof c.min !== 'number' || c.max <= c.min) continue;
+      const d = document.createElement('div'); d.className = 'f';
+      d.innerHTML = '<label>' + label + '</label><div class="rg"><input type="range" min="' + c.min + '" max="' + c.max + '" step="' + (c.step || (c.max - c.min) / 100) + '" value="' + (st[k] != null ? st[k] : c.min) + '"><output></output></div>';
+      const inp = d.querySelector('input'), out = d.querySelector('output'); out.textContent = (+inp.value).toFixed(2).replace(/\.?0+$/, '');
+      inp.oninput = () => { out.textContent = (+inp.value).toFixed(2).replace(/\.?0+$/, ''); apply(k, +inp.value); };
+      box.appendChild(d);
+    }
+    for (const [k, label] of [['focusMode', 'Focus mode'], ['exposureMode', 'Exposure mode'], ['whiteBalanceMode', 'White balance']]) {
+      const c = caps[k]; if (!Array.isArray(c) || c.length < 2) continue;
+      const d = document.createElement('div'); d.className = 'f'; d.innerHTML = '<label>' + label + '</label><select></select>';
+      const sel = d.querySelector('select'); c.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; sel.appendChild(o); });
+      if (st[k]) sel.value = st[k]; sel.onchange = () => apply(k, sel.value); box.appendChild(d);
+    }
+    if (caps.torch) { const d = document.createElement('div'); d.className = 'f in'; d.innerHTML = '<input type="checkbox" id="torchCb"><label for="torchCb">Torch / light</label>'; d.querySelector('input').onchange = e => apply('torch', e.target.checked); box.appendChild(d); }
+  }
+
+  function setZoom(z) {
+    z = Math.min(zoomRange[1], Math.max(zoomRange[0], Number(z) || 1)); O.zoom = z; saveO();
+    $('zoomSl').value = z; $('zoomOut').textContent = z.toFixed(1) + '×';
+    if (hwZoom && track) { try { track.applyConstraints({ advanced: [{ zoom: z * zoomUnit }] }); } catch (e) { hwZoom = false; } }
+  }
+  function resetView() { O.panX = 0; O.panY = 0; setZoom(1); saveO(); }
+
+  // ---------- viewfinder ----------
+  const view = $('view'), vbox = $('vbox');
+  function curGeom() {
+    const vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
+    return geom(vw, vh, O.rot, zoomDigital(), O.panX, O.panY, ratioVal());
+  }
+  function layoutView() {
+    const wrap = $('viewWrap'), aw = Math.max(160, wrap.clientWidth - 16), ah = Math.max(120, wrap.clientHeight - 16), g = curGeom(), r = g.cw / g.ch;
+    let w = aw, h = w / r; if (h > ah) { h = ah; w = h * r; }
+    vbox.style.width = Math.round(w) + 'px'; vbox.style.height = Math.round(h) + 'px';
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    view.width = Math.max(2, Math.round(w * dpr)); view.height = Math.max(2, Math.round(h * dpr));
+    renderGrid(); updateHud();
+  }
+  function renderGrid() {
+    const o = $('gridOv'), c = 'rgba(255,255,255,.55)'; let bg = '';
+    if (O.grid === 'thirds') bg = 'linear-gradient(to right,transparent 33.2%,' + c + ' 33.3%,' + c + ' 33.5%,transparent 33.6%,transparent 66.5%,' + c + ' 66.6%,' + c + ' 66.8%,transparent 66.9%),linear-gradient(to bottom,transparent 33.2%,' + c + ' 33.3%,' + c + ' 33.5%,transparent 33.6%,transparent 66.5%,' + c + ' 66.6%,' + c + ' 66.8%,transparent 66.9%)';
+    else if (O.grid === 'center') bg = 'linear-gradient(to right,transparent 49.8%,' + c + ' 49.9%,' + c + ' 50.2%,transparent 50.3%),linear-gradient(to bottom,transparent 49.8%,' + c + ' 49.9%,' + c + ' 50.2%,transparent 50.3%)';
+    else if (O.grid === 'grid4') bg = 'repeating-linear-gradient(to right,transparent 0,transparent calc(25% - 1px),' + c + ' calc(25% - 1px),' + c + ' 25%),repeating-linear-gradient(to bottom,transparent 0,transparent calc(25% - 1px),' + c + ' calc(25% - 1px),' + c + ' 25%)';
+    o.style.background = bg || 'none';
+  }
+  function updateHud() {
+    const g = curGeom(), s = outScale(g.cw, g.ch);
+    $('hud').textContent = (O.ratio === 'custom' ? O.cw + ':' + O.ch : O.ratio === 'full' ? 'Full' : O.ratio) + ' · ' + Math.round(g.cw * s) + '×' + Math.round(g.ch * s) + ' px · zoom ' + O.zoom.toFixed(1) + '×' + (O.mirror ? ' · mirrored' : '') + (O.rot ? ' · ' + O.rot + '°' : '');
+  }
+  (function loop() {
+    requestAnimationFrame(loop);
+    if (!view.width || $('paneCam').classList.contains('hide')) return;
+    const ctx = view.getContext('2d');
+    if (!stream || video.readyState < 2 || !video.videoWidth) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#0b0e14'; ctx.fillRect(0, 0, view.width, view.height);
+      ctx.fillStyle = '#8a97ab'; ctx.font = Math.max(12, Math.round(view.width / 30)) + 'px system-ui'; ctx.textAlign = 'center'; ctx.fillText('Camera is off — press C or “Start camera”', view.width / 2, view.height / 2); return;
+    }
+    const g = curGeom(), s = view.width / g.cw;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, view.width, view.height);
+    drawFrame(ctx, video, video.videoWidth, video.videoHeight, g, s, O.rot, O.mirror);
+  })();
+  window.addEventListener('resize', layoutView);
+
+  $('viewWrap').addEventListener('pointerdown', () => { const a = document.activeElement; if (a && a !== document.body && a.blur) a.blur(); });   // clicking the view gives the keyboard back to the shortcuts
+  // drag = pan the crop, wheel = zoom, double-click = reset
+  let drag = null;
+  view.addEventListener('pointerdown', e => { if (!stream) return; const g = curGeom(); drag = { x: e.clientX, y: e.clientY, ccx: g.ccx, ccy: g.ccy }; view.setPointerCapture(e.pointerId); view.classList.add('drag'); });
+  view.addEventListener('pointermove', e => {
+    if (!drag) return; const g = curGeom(), sCss = view.getBoundingClientRect().width / g.cw;
+    const nx = drag.ccx - (e.clientX - drag.x) / sCss, ny = drag.ccy - (e.clientY - drag.y) / sCss;
+    const rx = (g.ew - g.cw) / 2, ry = (g.eh - g.ch) / 2;
+    O.panX = rx > 0.5 ? Math.max(-1, Math.min(1, (nx - g.ew / 2) / rx)) : 0; O.panY = ry > 0.5 ? Math.max(-1, Math.min(1, (ny - g.eh / 2) / ry)) : 0;
+  });
+  const endDrag = () => { if (drag) { drag = null; view.classList.remove('drag'); saveO(); } };
+  view.addEventListener('pointerup', endDrag); view.addEventListener('pointercancel', endDrag);
+  view.addEventListener('wheel', e => { e.preventDefault(); setZoom(O.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)); updateHud(); }, { passive: false });
+  view.addEventListener('dblclick', () => { resetView(); updateHud(); });
+
+  // ---------- capture ----------
+  let capBusy = false, audioCtx = null;
+  function beep() { if (!O.sound) return; try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = 1500; g.gain.value = 0.06; o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 0.06); } catch (e) {} }
+  function flash() { const f = $('flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); }
+  async function countdown(n) { const o = $('cdOv'); for (let i = n; i > 0; i--) { o.textContent = i; await sleep(1000); } o.textContent = ''; }
+  async function grabFrame() {
+    const vw = video.videoWidth, vh = video.videoHeight; if (!vw) return null;
+    const g = curGeom(), s = outScale(g.cw, g.ch), cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(g.cw * s)); cv.height = Math.max(1, Math.round(g.ch * s));
+    drawFrame(cv.getContext('2d'), video, vw, vh, g, cv.width / g.cw, O.rot, O.mirror);
+    return toBlob(cv, O.quality);
+  }
+  async function doCapture() {
+    if (capBusy) return;
+    if (!target) { toast(lotRows().length ? 'Lot complete — pick another row or lot.' : 'No rows yet.', true); return; }
+    if (!stream) { toast('Camera is off — press C, or use Import.', true); return; }
+    capBusy = true;
+    try {
+      if (O.timer > 0) await countdown(O.timer);
+      if (!target) return;
+      beep(); flash();
+      const blob = await grabFrame(); if (!blob) { toast('Could not capture.', true); return; }
+      await handleCaptured(blob);
+    } finally { capBusy = false; $('cdOv').textContent = ''; }
+  }
+  async function handleCaptured(blob) {
+    if (O.review) { blob = await openEditor(blob); if (!blob) return; }
+    onCapture(blob);
+  }
+  function enqueue(job, sno, kind, blob) {
+    const k = keyOf(job, sno, kind);
+    if (S[k] && S[k].thumb) URL.revokeObjectURL(S[k].thumb);
+    S[k] = { st: 'queued', blob, size: blob.size, thumb: URL.createObjectURL(blob), err: '' };
+    dbPut({ id: sid + '|' + k, sid, key: k, blob, ts: Date.now() });
+    sendQ.push(k);
+  }
+  function onCapture(blob) {
+    const t = target; if (!t) return;
+    enqueue(t.job, t.sno, t.kind, blob);
+    log('Captured ' + (t.job ? t.job + ' · ' : '') + 'S No. ' + t.sno + ' ' + t.kind + ' (' + fmtSize(blob.size) + ')');
+    if (O.auto) target = findNext(cursor);
+    if (target) { const i = lotRows().findIndex(r => r.sno === target.sno); if (i >= 0) cursor = i; }
+    renderAll(); pump();
+  }
+
+  // ---------- review / edit ----------
+  function openEditor(blob) {
+    return new Promise(async resolve => {
+      const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+      const st = { rot: 0, fh: false, fv: false, br: 1, ct: 1 }, m = $('editor'), cv = $('edCanvas');
+      const paint = (c, maxDim) => {
+        const sw = st.rot % 180 !== 0, w = sw ? bmp.height : bmp.width, h = sw ? bmp.width : bmp.height, s = maxDim ? Math.min(1, maxDim / Math.max(w, h)) : 1;
+        c.width = Math.round(w * s); c.height = Math.round(h * s);
+        const x = c.getContext('2d'); x.save(); x.filter = 'brightness(' + st.br + ') contrast(' + st.ct + ')';
+        x.translate(c.width / 2, c.height / 2); x.rotate(st.rot * Math.PI / 180); x.scale(st.fh ? -1 : 1, st.fv ? -1 : 1);
+        x.drawImage(bmp, -bmp.width * s / 2, -bmp.height * s / 2, bmp.width * s, bmp.height * s); x.restore();
+      };
+      const repaint = () => paint(cv, 1100);
+      const done = async ok => {
+        m.classList.add('hide'); document.removeEventListener('keydown', onKey, true);
+        if (!ok) { resolve(null); return; }
+        const out = document.createElement('canvas'); paint(out, 0); resolve(await toBlob(out, O.quality));
+      };
+      const onKey = e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); } else if (e.key === '[') { st.rot = (st.rot + 270) % 360; repaint(); } else if (e.key === ']') { st.rot = (st.rot + 90) % 360; repaint(); } };
+      $('edBr').value = 1; $('edCt').value = 1;
+      $('edRotL').onclick = () => { st.rot = (st.rot + 270) % 360; repaint(); }; $('edRotR').onclick = () => { st.rot = (st.rot + 90) % 360; repaint(); };
+      $('edFlipH').onclick = () => { st.fh = !st.fh; repaint(); }; $('edFlipV').onclick = () => { st.fv = !st.fv; repaint(); };
+      $('edBr').oninput = e => { st.br = +e.target.value; repaint(); }; $('edCt').oninput = e => { st.ct = +e.target.value; repaint(); };
+      $('edReset').onclick = () => { Object.assign(st, { rot: 0, fh: false, fv: false, br: 1, ct: 1 }); $('edBr').value = 1; $('edCt').value = 1; repaint(); };
+      $('edOk').onclick = () => done(true); $('edCancel').onclick = () => done(false);
+      document.addEventListener('keydown', onKey, true); m.classList.remove('hide'); repaint();
+    });
+  }
+
+  // ---------- import (files / folder / ZIP / paste) ----------
+  let imports = [], impId = 0;
+  function parseName(full) {
+    const base = String(full).replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '').trim();
+    let m = base.match(/^(?:(\d{6,})[_\- ])?(\d{1,6})(?:[_\- ]*(a|art|article|h|huid))?$/i);
+    if (!m) { const m2 = base.match(/^(a|art|article|h|huid)[_\- ]*(?:(\d{6,})[_\- ])?(\d{1,6})$/i); if (m2) m = [m2[0], m2[2], m2[3], m2[1]]; }
+    if (!m) return { job: '', sno: '', kind: 'article', ok: false };
+    const k = (m[3] || 'a').toLowerCase();
+    return { job: m[1] || '', sno: String(parseInt(m[2], 10)), kind: k[0] === 'h' ? 'huid' : 'article', ok: true };
+  }
+  const mimeOf = n => /\.png$/i.test(n) ? 'image/png' : /\.webp$/i.test(n) ? 'image/webp' : /\.gif$/i.test(n) ? 'image/gif' : 'image/jpeg';
+  const isImg = n => /\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(n);
+  async function readZip(file) {                                   // stored + deflate (no ZIP64)
+    const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer); let e = -1;
+    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+    if (e < 0) throw new Error('Not a ZIP file');
+    const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true); const out = [];
+    for (let i = 0; i < n; i++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+      const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nl)); p += 46 + nl + el + cl;
+      if (name.endsWith('/') || !isImg(name)) continue;
+      const ds = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true), data = buf.subarray(ds, ds + csize); let bytes;
+      if (method === 0) bytes = data;
+      else if (method === 8) { const res = new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))); bytes = new Uint8Array(await res.arrayBuffer()); }
+      else continue;
+      out.push({ name, blob: new Blob([bytes], { type: mimeOf(name) }) });
+    }
+    return out;
+  }
+  async function addFiles(list) {
+    const files = [...list]; let added = 0;
+    for (const f of files) {
+      try {
+        if (/\.zip$/i.test(f.name)) { for (const z of await readZip(f)) { addImport(z.name, z.blob); added++; } }
+        else if (f.type.startsWith('image/') || isImg(f.name)) { addImport(f.webkitRelativePath || f.name, f); added++; }
+      } catch (e) { toast('Could not read ' + f.name + ': ' + e.message, true); }
+    }
+    setTab('imp'); renderImports(); toast(added ? added + ' file(s) added' : 'No image files found', !added);
+  }
+  function addImport(name, blob) {
+    const p = parseName(name), job = p.job && lots().includes(p.job) ? p.job : lot;
+    imports.push({ id: ++impId, name: String(name).replace(/^.*[\\/]/, ''), blob, thumb: URL.createObjectURL(blob), job, sno: p.sno, kind: p.kind, parsed: p.ok });
+  }
+  const rowFor = e => rows.find(r => r.job === e.job && r.sno === String(e.sno));
+  const matchState = e => { const r = rowFor(e); if (!e.sno) return 'No S No.'; if (!r) return 'No such row'; if (e.kind === 'huid' && r.nh) return 'Row has no HUID'; return 'ok'; };
+  function renderImports() {
+    const body = $('impBody'); body.innerHTML = '';
+    const jobs = lots();
+    for (const e of imports) {
+      const st = matchState(e), tr = document.createElement('tr'); tr.dataset.id = e.id;
+      tr.innerHTML = '<td><img src="' + e.thumb + '" alt=""></td><td title="' + esc(e.name) + '">' + esc(e.name.length > 26 ? e.name.slice(0, 24) + '…' : e.name) + '</td>' +
+        '<td><select data-f="job">' + jobs.map(j => '<option value="' + esc(j) + '"' + (j === e.job ? ' selected' : '') + '>' + esc(j || '—') + '</option>').join('') + '</select></td>' +
+        '<td><input type="number" min="1" data-f="sno" value="' + esc(e.sno) + '"></td>' +
+        '<td><select data-f="kind"><option value="article"' + (e.kind === 'article' ? ' selected' : '') + '>Article</option><option value="huid"' + (e.kind === 'huid' ? ' selected' : '') + '>HUID</option></select></td>' +
+        '<td class="' + (st === 'ok' ? 'okc' : 'badc') + '">' + (st === 'ok' ? '✓ matched' : '✗ ' + st) + '</td><td><button data-x="1" title="Remove">✕</button></td>';
+      body.appendChild(tr);
+    }
+    $('impEmpty').classList.toggle('hide', imports.length > 0);
+    const okN = imports.filter(e => matchState(e) === 'ok').length;
+    $('impSend').textContent = 'Send matched (' + okN + ')'; $('impSend').disabled = !okN;
+    $('impInfo').textContent = imports.length ? (imports.length - okN) + ' need attention — fix the S No./type or remove them.' : '';
+    renderImportBadge();
+  }
+  function renderImportBadge() { const b = $('impBadge'); b.textContent = imports.length; b.classList.toggle('hide', !imports.length); }
+  $('impBody').addEventListener('input', e => { const tr = e.target.closest('tr'); if (!tr) return; const it = imports.find(x => x.id === +tr.dataset.id); if (!it) return; const f = e.target.dataset.f; if (f === 'sno') { it.sno = String(parseInt(e.target.value, 10) || ''); updateMatchCell(tr, it); } });
+  $('impBody').addEventListener('change', e => { const tr = e.target.closest('tr'); if (!tr) return; const it = imports.find(x => x.id === +tr.dataset.id); if (!it) return; const f = e.target.dataset.f; if (f === 'job') it.job = e.target.value; if (f === 'kind') it.kind = e.target.value; renderImports(); });
+  $('impBody').addEventListener('click', e => { const b = e.target.closest('button[data-x]'); if (!b) return; const id = +b.closest('tr').dataset.id, it = imports.find(x => x.id === id); if (it) URL.revokeObjectURL(it.thumb); imports = imports.filter(x => x.id !== id); renderImports(); });
+  function updateMatchCell(tr, it) { const st = matchState(it), c = tr.children[5]; c.className = st === 'ok' ? 'okc' : 'badc'; c.textContent = st === 'ok' ? '✓ matched' : '✗ ' + st; const okN = imports.filter(x => matchState(x) === 'ok').length; $('impSend').textContent = 'Send matched (' + okN + ')'; $('impSend').disabled = !okN; }
+
+  async function processImport(blob) {                              // original JPEG untouched, or crop to the chosen shape
+    if (O.impProc === 'original' && blob.type === 'image/jpeg') return blob;
+    const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    const g = geom(bmp.width, bmp.height, 0, 1, 0, 0, O.impProc === 'shape' ? ratioVal() : 0);
+    const s = O.impProc === 'shape' ? outScale(g.cw, g.ch) : 1, cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(g.cw * s)); cv.height = Math.max(1, Math.round(g.ch * s));
+    const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height);
+    drawFrame(x, bmp, bmp.width, bmp.height, g, cv.width / g.cw, 0, false);
+    return toBlob(cv, Math.max(O.quality, 0.92));
+  }
+  $('impSend').onclick = async () => {
+    const ok = imports.filter(e => matchState(e) === 'ok'); if (!ok.length) return;
+    $('impSend').disabled = true; let n = 0, bad = 0;
+    for (const e of ok) {
+      try { const b = await processImport(e.blob); enqueue(e.job, e.sno, e.kind, b); n++; URL.revokeObjectURL(e.thumb); imports = imports.filter(x => x.id !== e.id); }
+      catch (x) { bad++; log('Import failed for ' + e.name + ': ' + x.message); }
+    }
+    log('Imported ' + n + ' photo(s) to the send queue' + (bad ? ', ' + bad + ' failed' : ''));
+    toast(n + ' photo(s) queued' + (bad ? ' · ' + bad + ' failed' : ''), !!bad);
+    target = findNext(cursor); renderImports(); renderAll(); pump();
+  };
+  $('impClear').onclick = () => { imports.forEach(e => URL.revokeObjectURL(e.thumb)); imports = []; renderImports(); };
+  $('impFiles').onclick = () => { $('fFiles').value = ''; $('fFiles').click(); };
+  $('impFolder').onclick = () => { $('fFolder').value = ''; $('fFolder').click(); };
+  $('impZip').onclick = () => { $('fZip').value = ''; $('fZip').click(); };
+  for (const id of ['fFiles', 'fFolder', 'fZip']) $(id).onchange = e => { if (e.target.files.length) addFiles(e.target.files); };
+  // drag & drop anywhere
+  let dragDepth = 0;
+  window.addEventListener('dragenter', e => { if ([...(e.dataTransfer && e.dataTransfer.types || [])].includes('Files')) { dragDepth++; $('drop').classList.add('over'); setTab('imp'); } });
+  window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('drop').classList.remove('over'); });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; $('drop').classList.remove('over'); if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+  // paste a photo = capture for the selected row
+  window.addEventListener('paste', async e => {
+    if (/input|textarea|select/i.test((e.target.tagName || ''))) return;
+    const f = [...(e.clipboardData && e.clipboardData.files || [])].find(x => x.type.startsWith('image/')); if (!f) return;
+    e.preventDefault(); if (!target) { toast('No row selected.', true); return; }
+    try { await handleCaptured(await processImport(f).then(b => b.type === 'image/jpeg' ? b : toJpegPlain(b))); } catch (x) { toast('Paste failed: ' + x.message, true); }
+  });
+  async function toJpegPlain(b) { const bmp = await createImageBitmap(b), cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height; const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); x.drawImage(bmp, 0, 0); return toBlob(cv, 0.95); }
+
+  // ---------- sending ----------
+  function pump() {
+    while (active < O.conc && sendQ.length) {
+      const k = sendQ.shift(), e = S[k];
+      if (!e || e.st === 'sent' || e.st === 'sending') continue;
+      active++; send(k).finally(() => { active--; pump(); });
+    }
+    renderAll();
+  }
+  async function reduceBlob(blob) {
+    const bmp = await createImageBitmap(blob), cv = document.createElement('canvas'), s = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+    cv.width = Math.round(bmp.width * s); cv.height = Math.round(bmp.height * s); cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+    return toBlob(cv, 0.9);
+  }
+  async function send(k) {
+    const e = S[k], [job, sno, kind] = k.split('|'); e.st = 'sending'; renderSlots(); renderQueue();
+    for (let attempt = 1; attempt <= O.tries; attempt++) {
+      const ac = new AbortController(), t = setTimeout(() => ac.abort(), 90000);
+      try {
+        const fd = new FormData();
+        fd.append('session_id', sid); fd.append('phone_token', tok); fd.append('job', job); fd.append('sno', sno); fd.append('kind', kind);
+        fd.append('file', e.blob, kind + '_' + sno + '.jpg');
+        const resp = await fetch(API, { method: 'POST', body: fd, signal: ac.signal }), j = await resp.json();
+        if (j.ok) {
+          e.st = 'sent'; e.err = ''; dbDel(sid + '|' + k);
+          const row = rows.find(x => x.job === job && x.sno === sno); if (row) { if (kind === 'huid') row.h = true; else row.a = true; }
+          log('Sent ' + (job ? job + ' · ' : '') + 'S No. ' + sno + ' ' + kind + ' (' + fmtSize(e.blob.size) + ')'); return;
+        }
+        e.err = j.error || ('HTTP ' + resp.status);
+        if ((resp.status === 413 || /size/i.test(e.err)) && !e.reduced) { try { e.blob = await reduceBlob(e.blob); e.size = e.blob.size; e.reduced = true; e.err = ''; attempt--; log('Too large — retrying smaller'); continue; } catch (x) {} }
+        if (resp.status === 401 || resp.status === 400 || resp.status === 413) break;
+      } catch (err) {
+        e.err = err.name === 'AbortError' ? 'timeout' : (err.message || 'network');
+        if (!e.reduced && e.blob.size > 4e6) { try { e.blob = await reduceBlob(e.blob); e.size = e.blob.size; e.reduced = true; attempt--; continue; } catch (x) {} }
+      } finally { clearTimeout(t); }
+      if (attempt < O.tries) await sleep(1500 * attempt);
+    }
+    e.st = 'fail'; log('FAILED ' + k + ': ' + e.err); toast('Not sent: ' + e.err + ' — it is kept and can be retried.', true);
+  }
+  $('retryAll').onclick = () => { for (const [k, e] of Object.entries(S)) if (e.st === 'fail') { e.st = 'queued'; sendQ.push(k); } pump(); };
+  $('clearSent').onclick = () => { for (const [k, e] of Object.entries(S)) if (e.st === 'sent') { if (e.thumb) URL.revokeObjectURL(e.thumb); delete S[k]; } renderAll(); };
+  window.addEventListener('online', () => $('retryAll').click());
+
+  // ---------- unsent photos survive a refresh (24 h) ----------
+  const IDB = 'mapu_desktop', STORE = 'unsent';
+  const idb = () => new Promise((res, rej) => { const r = indexedDB.open(IDB, 1); r.onupgradeneeded = () => r.result.createObjectStore(STORE, { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  async function dbTx(mode, fn) {
+    try { const db = await idb(); return await new Promise((res, rej) => { const tx = db.transaction(STORE, mode), out = fn(tx.objectStore(STORE)); tx.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined); tx.onerror = () => rej(tx.error); }); }
+    catch (e) { return undefined; }
+  }
+  const dbPut = rec => dbTx('readwrite', st => st.put(rec)), dbDel = id => dbTx('readwrite', st => st.delete(id)), dbAll = async () => (await dbTx('readonly', st => st.getAll())) || [];
+  async function purgeOldUnsent() { for (const r of await dbAll()) if (Date.now() - r.ts > DAY) dbDel(r.id); }
+  async function restoreUnsent() {
+    let n = 0;
+    for (const r of await dbAll()) {
+      if (Date.now() - r.ts > DAY) { dbDel(r.id); continue; }
+      if (r.sid !== sid || S[r.key]) continue;
+      const [job, sno] = r.key.split('|'); if (!rows.some(x => x.job === job && x.sno === sno)) continue;
+      S[r.key] = { st: 'queued', blob: r.blob, size: r.blob.size, thumb: URL.createObjectURL(r.blob), err: '' }; sendQ.push(r.key); n++;
+    }
+    if (n) { toast('Resuming ' + n + ' unsent photo(s)…'); log('Resuming ' + n + ' unsent photo(s)'); pump(); }
+  }
+  setInterval(purgeOldUnsent, 30 * 60 * 1000);
+
+  // ---------- tabs / viewer / options ----------
+  function setTab(t) {
+    O.tab = t; saveO();
+    $('paneCam').classList.toggle('hide', t !== 'cam'); $('paneImp').classList.toggle('hide', t !== 'imp');
+    $('tabCam').classList.toggle('on', t === 'cam'); $('tabImp').classList.toggle('on', t === 'imp');
+    if (t === 'cam') layoutView();
+  }
+  $('tabCam').onclick = () => setTab('cam'); $('tabImp').onclick = () => setTab('imp');
+  for (const L of ['A', 'H']) {
+    $('th' + L).onclick = () => { const s = $('th' + L).dataset.src; if (s) { $('viewerImg').src = s; $('viewer').classList.remove('hide'); } };
+    $('retake' + L).onclick = () => { setKind(L === 'A' ? 'article' : 'huid'); setTab('cam'); };
+    $('slot' + L).onclick = e => { if (!e.target.closest('button') && !e.target.closest('.th')) setKind(L === 'A' ? 'article' : 'huid'); };
+  }
+  $('viewer').onclick = () => $('viewer').classList.add('hide');
+
+  $('lotSel').onchange = e => { lot = e.target.value; cursor = 0; target = findNext(0); try { const u = new URL(location.href); if (lot) u.searchParams.set('job', lot); else u.searchParams.delete('job'); history.replaceState(null, '', u); } catch (x) {} renderAll(); };
+  $('rowList').addEventListener('click', e => { const el = e.target.closest('.row'); if (el) goRow(+el.dataset.i); });
+  $('rowQ').oninput = renderRows;
+  $('rowFilter').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { O.filter = b.dataset.f; saveO(); renderRows(); } });
+  $('prev').onclick = () => goRow(cursor - 1); $('next').onclick = () => goRow(cursor + 1);
+  $('kA').onclick = () => setKind('article'); $('kH').onclick = () => setKind('huid');
+  $('btnMissing').onclick = () => { const t = findNext(cursor); if (t) setTarget(t); else toast('Nothing missing in this lot.'); };
+  $('shutter').onclick = doCapture;
+  $('btnFull').onclick = () => { const w = $('viewWrap'); if (document.fullscreenElement) document.exitFullscreen(); else if (w.requestFullscreen) w.requestFullscreen(); };
+  document.addEventListener('fullscreenchange', () => setTimeout(layoutView, 120));
+  $('btnKeys').onclick = () => $('keys').classList.remove('hide'); $('keysClose').onclick = () => $('keys').classList.add('hide');
+
+  // option bindings
+  const ratioFill = sel => { sel.innerHTML = ''; for (const k of ratioKeys) { const o = document.createElement('option'); o.value = k; o.textContent = RATIO_NAMES[k] || k; sel.appendChild(o); } };
+  ratioFill($('ratioSel')); ratioFill($('ratioQuick'));
+  function syncOptsUI() {
+    $('ratioSel').value = O.ratio; $('ratioQuick').value = O.ratio; $('customBox').style.display = O.ratio === 'custom' ? '' : 'none'; $('cw').value = O.cw; $('ch').value = O.ch;
+    $('gridSel').value = O.grid; $('sizeSel').value = O.sizeMode; $('maxBox').style.display = O.sizeMode === 'custom' ? '' : 'none'; $('maxSide').value = O.maxSide;
+    $('quality').value = O.quality; $('qualOut').textContent = Math.round(O.quality * 100) + '%'; $('impProc').value = O.impProc;
+    $('timerSel').value = String(O.timer); $('optAuto').checked = O.auto; $('optReview').checked = O.review; $('optSound').checked = O.sound; $('optMirror').checked = O.mirror;
+    $('concSel').value = String(O.conc); $('triesSel').value = String(O.tries); $('resSel').value = O.res; $('themeSel').value = O.theme;
+    document.documentElement.dataset.theme = O.theme === 'auto' ? '' : O.theme; if (O.theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    $('zoomOut').textContent = (+O.zoom).toFixed(1) + '×'; $('zoomSl').value = O.zoom;
+  }
+  const setRatio = v => { O.ratio = v; O.panX = 0; O.panY = 0; saveO(); syncOptsUI(); layoutView(); };
+  $('ratioSel').onchange = e => setRatio(e.target.value); $('ratioQuick').onchange = e => setRatio(e.target.value);
+  $('cw').oninput = e => { O.cw = Math.max(1, +e.target.value || 1); saveO(); layoutView(); }; $('ch').oninput = e => { O.ch = Math.max(1, +e.target.value || 1); saveO(); layoutView(); };
+  $('gridSel').onchange = e => { O.grid = e.target.value; saveO(); renderGrid(); };
+  $('sizeSel').onchange = e => { O.sizeMode = e.target.value; saveO(); syncOptsUI(); updateHud(); };
+  $('maxSide').onchange = e => { O.maxSide = Math.min(8000, Math.max(320, +e.target.value || 2400)); saveO(); syncOptsUI(); updateHud(); };
+  $('quality').oninput = e => { O.quality = +e.target.value; $('qualOut').textContent = Math.round(O.quality * 100) + '%'; saveO(); };
+  $('impProc').onchange = e => { O.impProc = e.target.value; saveO(); };
+  $('timerSel').onchange = e => { O.timer = +e.target.value; saveO(); };
+  $('optAuto').onchange = e => { O.auto = e.target.checked; saveO(); }; $('optReview').onchange = e => { O.review = e.target.checked; saveO(); }; $('optSound').onchange = e => { O.sound = e.target.checked; saveO(); };
+  $('optMirror').onchange = e => { O.mirror = e.target.checked; saveO(); updateHud(); };
+  $('concSel').onchange = e => { O.conc = +e.target.value; saveO(); pump(); }; $('triesSel').onchange = e => { O.tries = +e.target.value; saveO(); };
+  $('resSel').onchange = e => { O.res = e.target.value; saveO(); if (stream) startCam(); };
+  $('devSel').onchange = e => { O.deviceId = e.target.value; saveO(); if (stream) startCam(); };
+  $('themeSel').onchange = e => { O.theme = e.target.value; saveO(); syncOptsUI(); };
+  const rotate = d => { O.rot = (O.rot + d + 360) % 360; O.panX = 0; O.panY = 0; saveO(); layoutView(); };
+  $('rotL').onclick = () => rotate(-90); $('rotR').onclick = () => rotate(90);
+  $('zoomSl').oninput = e => { setZoom(e.target.value); updateHud(); }; $('zoomReset').onclick = () => { resetView(); updateHud(); };
+  $('resetOpts').onclick = () => { if (!confirm('Reset all desktop-page settings?')) return; O = Object.assign({}, DEF); saveO(); syncOptsUI(); layoutView(); renderAll(); if (stream) startCam(); };
+  $('copyLog').onclick = async () => { try { await navigator.clipboard.writeText(logLines.join('\n')); toast('Log copied'); } catch (e) { toast('Select the log text and copy it manually.', true); } };
+
+  // ---------- keyboard ----------
+  // release keyboard focus after a control is used, so shortcuts (Space = capture …) keep working
+  document.addEventListener('change', e => { const t = e.target; if (t.matches && t.matches('select,input[type=checkbox],input[type=range]')) t.blur(); });
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (b && !b.closest('.modal')) b.blur(); });
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = (e.target.tagName || '').toLowerCase(), typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+    if (e.key === 'Escape') { for (const id of ['keys', 'viewer']) $(id).classList.add('hide'); if (typing) e.target.blur(); return; }
+    if (typing || !$('editor').classList.contains('hide')) return;
+    if (tag === 'button' && (e.key === ' ' || e.key === 'Enter')) return;          // keyboard users: Space/Enter on a focused button presses it
+    const k = e.key, K = k.length === 1 ? k.toLowerCase() : k;
+    const cycle = (arr, cur, d) => arr[(arr.indexOf(cur) + d + arr.length) % arr.length];
+    const map = {
+      ' ': () => doCapture(), 'Enter': () => doCapture(), 'ArrowUp': () => goRow(cursor - 1), 'ArrowDown': () => goRow(cursor + 1),
+      'a': () => setKind('article'), 'h': () => setKind('huid'), 'n': () => $('btnMissing').click(), 'c': () => $('btnCam').click(), 'f': () => $('btnFull').click(),
+      'r': () => rotate(90), 'm': () => { O.mirror = !O.mirror; saveO(); syncOptsUI(); updateHud(); },
+      '[': () => setRatio(cycle(ratioKeys, O.ratio, -1)), ']': () => setRatio(cycle(ratioKeys, O.ratio, 1)),
+      'g': () => { O.grid = cycle(['off', 'thirds', 'center', 'grid4'], O.grid, 1); saveO(); syncOptsUI(); renderGrid(); toast('Guide: ' + O.grid); },
+      't': () => { O.timer = cycle([0, 2, 3, 5, 10], O.timer, 1); saveO(); syncOptsUI(); toast('Timer: ' + (O.timer ? O.timer + ' s' : 'off')); },
+      '+': () => { setZoom(O.zoom * 1.15); updateHud(); }, '=': () => { setZoom(O.zoom * 1.15); updateHud(); }, '-': () => { setZoom(O.zoom / 1.15); updateHud(); },
+      '0': () => { resetView(); updateHud(); }, 'v': () => setTab('cam'), 'i': () => setTab('imp'),
+      '/': () => $('rowQ').focus(), '?': () => $('keys').classList.remove('hide')
+    };
+    if (map[K]) { e.preventDefault(); map[K](); }
+  });
+
+  // ---------- session clock ----------
+  setInterval(() => {
+    if (!expiresAt) { $('expTxt').textContent = ''; return; }
+    const ms = expiresAt - Date.now();
+    $('expTxt').textContent = ms > 0 ? 'session expires in ' + Math.floor(ms / 3600000) + 'h ' + Math.floor(ms % 3600000 / 60000) + 'm' : 'session expired';
+  }, 15000);
+
+  // ---------- go ----------
+  syncOptsUI(); setTab(O.tab === 'imp' ? 'imp' : 'cam'); layoutView(); renderImports(); renderAll();
+  navigator.mediaDevices && navigator.mediaDevices.addEventListener && navigator.mediaDevices.addEventListener('devicechange', listDevices);
+  init();
+  if (new URLSearchParams(location.search).get('cam') !== '0') setTimeout(() => { if (parseHash().sid) startCam(); }, 500);   // ?cam=0 -> don't auto-start
+})();
+</script>
+</body>
+</html>
