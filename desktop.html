@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root { color-scheme: light dark; --bg:#eef1f6; --panel:#ffffff; --ink:#1b2433; --muted:#667489; --line:#d9e0ea; --acc:#2d5bd7; --accink:#fff; --ok:#2e7d32; --err:#c62828; --warn:#b26a00; --hi:#fff3c4; --hiline:#e6c75a; --cam:#0b0e14; }
+  :root { --lc:300px; --rc:350px; }
   :root[data-theme="dark"] { color-scheme: dark; --bg:#0f131a; --panel:#181e28; --ink:#e6ebf2; --muted:#93a1b5; --line:#2a3342; --acc:#4b7bef; --hi:#463b12; --hiline:#8a7021; }
   :root[data-theme="light"] { color-scheme: light; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f131a; --panel:#181e28; --ink:#e6ebf2; --muted:#93a1b5; --line:#2a3342; --acc:#4b7bef; --hi:#463b12; --hiline:#8a7021; } }
@@ -24,7 +25,7 @@
   .hide { display:none !important; } .muted { color:var(--muted); } .small { font-size:12px; }
 
   #app { display:grid; grid-template-rows:auto 1fr; height:100vh; }
-  header { display:flex; align-items:center; gap:12px; padding:8px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header { display:flex; align-items:center; gap:10px; padding:6px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
   header h1 { font-size:15px; margin:0; white-space:nowrap; }
   #lotSel { min-width:200px; max-width:300px; }
   #prog { flex:1; min-width:140px; max-width:360px; }
@@ -34,7 +35,7 @@
   #pill.ok { background:#e3f4e4; color:var(--ok); } #pill.err { background:#fde5e3; color:var(--err); }
   .sp { flex:1; }
 
-  #grid { display:grid; grid-template-columns:300px minmax(0,1fr) 350px; min-height:0; }
+  #grid { display:grid; grid-template-columns:var(--lc) minmax(0,1fr) var(--rc); min-height:0; }
   aside { background:var(--panel); min-height:0; display:flex; flex-direction:column; }
   #left { border-right:1px solid var(--line); } #right { border-left:1px solid var(--line); overflow:auto; }
   .ph { padding:10px 12px; border-bottom:1px solid var(--line); font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:8px; }
@@ -69,6 +70,16 @@
   #gridOv, #cdOv, #flash { position:absolute; inset:0; pointer-events:none; }
   #cdOv { display:flex; align-items:center; justify-content:center; font-size:120px; font-weight:800; color:#fff; text-shadow:0 2px 12px #000; }
   #flash { background:#fff; opacity:0; } #flash.on { animation:fl .25s; } @keyframes fl { 0%{opacity:.85} 100%{opacity:0} }
+  #vctl { position:absolute; left:10px; top:8px; display:flex; gap:6px; z-index:3; }
+  #vctl button { background:rgba(0,0,0,.55); color:#fff; border:1px solid rgba(255,255,255,.35); padding:3px 10px; border-radius:12px; font-size:12px; }
+  #vctl button:hover { border-color:#fff; }
+  /* big preview / fullscreen: the camera gets (almost) the whole window */
+  body.big .tabs, body.big #slots, body.fs .tabs, body.fs #slots { display:none; }
+  body.big #center, body.fs #center { padding:6px 8px; gap:6px; }
+  body.big #banner, body.fs #banner { padding:3px 10px; }
+  body.big #tKind, body.fs #tKind { font-size:16px; } body.big #tHuid, body.fs #tHuid { font-size:22px; }
+  body.big #tRow, body.fs #tRow { font-size:12px; }
+  #center:fullscreen { background:var(--bg); width:100vw; height:100vh; }
   #hud { position:absolute; left:10px; bottom:8px; font-size:12px; color:#cfd8e6; background:rgba(0,0,0,.5); padding:2px 8px; border-radius:8px; }
   #camState { position:absolute; right:10px; top:8px; font-size:12px; color:#cfd8e6; background:rgba(0,0,0,.5); padding:2px 8px; border-radius:8px; }
   #ctl { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:center; }
@@ -108,11 +119,11 @@
   #edCanvas { max-width:100%; max-height:58vh; display:block; margin:0 auto; background:#000; border-radius:8px; }
   #viewerImg { max-width:90vw; max-height:84vh; display:block; border-radius:8px; }
   #sc { display:grid; grid-template-columns:auto 1fr auto 1fr; gap:6px 12px; align-items:center; }
-  #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:60; background:rgba(15,20,30,.92); color:#fff; padding:9px 16px; border-radius:10px; opacity:0; pointer-events:none; transition:opacity .2s; }
+  #toast { position:fixed; left:50%; top:74px; transform:translateX(-50%); z-index:60; background:rgba(15,20,30,.92); color:#fff; padding:9px 16px; border-radius:10px; opacity:0; pointer-events:none; transition:opacity .2s; }
   #toast.on { opacity:1; } #toast.err { background:#a02020; }
   input[type=file] { display:none; }
 
-  @media (max-width:1100px) { #grid { grid-template-columns:240px minmax(0,1fr) 300px; } }
+  @media (max-width:1100px) { :root { --lc:240px; --rc:300px; } #expTxt { display:none; } #lotSel { min-width:150px; } }
   @media (max-width:860px) { body { overflow:auto; } #app { height:auto; } #grid { grid-template-columns:1fr; } #left, #right { border:0; max-height:360px; } #viewWrap { min-height:320px; } }
 </style>
 </head>
@@ -125,6 +136,7 @@
     <span id="pill">Starting…</span>
     <span class="muted small" id="expTxt"></span>
     <span class="sp"></span>
+    <button id="btnRows" title="Show / hide the rows panel (L)">◧ Rows</button><button id="btnOpts" title="Show / hide the options panel (O)">Options ◨</button><button id="btnBig" title="Big preview (B)">⤢ Big preview</button>
     <button id="btnKeys" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>
   </header>
 
@@ -152,6 +164,7 @@
             <canvas id="view"></canvas>
             <div id="gridOv"></div><div id="cdOv"></div><div id="flash"></div>
           </div>
+          <div id="vctl"><button id="pvBtn" title="Preview: full camera frame with crop outline  ↔  exact crop only (P)">▣ Frame</button><button id="bigBtn" title="Big preview (B)">⤢</button></div>
           <div id="hud"></div><div id="camState">camera off</div>
           <video id="video" playsinline muted style="display:none"></video>
         </div>
@@ -198,6 +211,7 @@
       <details open><summary>▢ Shape &amp; guides</summary><div class="opt">
         <div class="f"><label>Photo shape</label><select id="ratioSel"></select></div>
         <div class="two f" id="customBox" style="display:none"><div class="f"><label>Width</label><input type="number" id="cw" min="1" max="99" step="1"></div><div class="f"><label>Height</label><input type="number" id="ch" min="1" max="99" step="1"></div></div>
+        <div class="f"><label>Preview shows</label><select id="pvSel"><option value="frame">Full camera frame + crop outline (bigger preview)</option><option value="crop">Exact crop only</option></select></div>
         <div class="f"><label>Guide overlay</label><select id="gridSel"><option value="off">None</option><option value="thirds">Rule of thirds</option><option value="center">Centre cross</option><option value="grid4">4 × 4 grid</option></select></div>
       </div></details>
 
@@ -257,7 +271,8 @@
     <kbd>T</kbd><span>Cycle self-timer</span><kbd>+</kbd> <kbd>−</kbd><span>Zoom in / out</span>
     <kbd>0</kbd><span>Reset zoom &amp; position</span><kbd>V</kbd> / <kbd>I</kbd><span>Camera tab / Import tab</span>
     <kbd>/</kbd><span>Search rows</span><kbd>Ctrl</kbd>+<kbd>V</kbd><span>Paste a photo for the selected row</span>
-    <kbd>?</kbd><span>This help</span><kbd>Esc</kbd><span>Close windows</span>
+    <kbd>B</kbd><span>Big preview mode</span><kbd>L</kbd> / <kbd>O</kbd><span>Hide / show rows · options panel</span>
+    <kbd>P</kbd><span>Preview: full frame ↔ exact crop</span><kbd>?</kbd><span>This help</span><kbd>Esc</kbd><span>Close windows</span>
   </div>
   <div style="text-align:right;margin-top:12px"><button id="keysClose">Close</button></div>
 </div></div>
@@ -281,7 +296,7 @@
 
   // ---------- options (remembered in this browser) ----------
   const DEF = { ratio: '1:1', cw: 4, ch: 3, sizeMode: 'actual', maxSide: 2400, quality: 0.92, mirror: false, rot: 0, grid: 'off', timer: 0,
-    auto: true, review: false, sound: false, conc: 2, tries: 3, res: 'auto', deviceId: '', theme: 'auto', tab: 'cam', impProc: 'original', zoom: 1, panX: 0, panY: 0, filter: 'all' };
+    auto: true, review: false, sound: false, conc: 2, tries: 3, res: 'auto', deviceId: '', theme: 'auto', tab: 'cam', impProc: 'original', zoom: 1, panX: 0, panY: 0, filter: 'all', pv: 'frame', big: true, hideL: null, hideR: null };
   let O = Object.assign({}, DEF);
   try { Object.assign(O, JSON.parse(localStorage.getItem('mapu_desk') || '{}')); } catch (e) {}
   const saveO = () => { try { localStorage.setItem('mapu_desk', JSON.stringify(O)); } catch (e) {} };
@@ -554,8 +569,10 @@
     const vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
     return geom(vw, vh, O.rot, zoomDigital(), O.panX, O.panY, ratioVal());
   }
+  const frameGeom = () => geom(video.videoWidth || 1280, video.videoHeight || 720, O.rot, 1, 0, 0, 0);     // whole camera frame (after rotate)
+  const viewGeom = () => (O.pv === 'frame' ? frameGeom() : curGeom());
   function layoutView() {
-    const wrap = $('viewWrap'), aw = Math.max(160, wrap.clientWidth - 16), ah = Math.max(120, wrap.clientHeight - 16), g = curGeom(), r = g.cw / g.ch;
+    const wrap = $('viewWrap'), aw = Math.max(160, wrap.clientWidth - 16), ah = Math.max(120, wrap.clientHeight - 16), g = viewGeom(), r = O.pv === 'frame' ? g.ew / g.eh : g.cw / g.ch;
     let w = aw, h = w / r; if (h > ah) { h = ah; w = h * r; }
     vbox.style.width = Math.round(w) + 'px'; vbox.style.height = Math.round(h) + 'px';
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -581,10 +598,28 @@
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#0b0e14'; ctx.fillRect(0, 0, view.width, view.height);
       ctx.fillStyle = '#8a97ab'; ctx.font = Math.max(12, Math.round(view.width / 30)) + 'px system-ui'; ctx.textAlign = 'center'; ctx.fillText('Camera is off — press C or “Start camera”', view.width / 2, view.height / 2); return;
     }
-    const g = curGeom(), s = view.width / g.cw;
+    const gc = curGeom();
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, view.width, view.height);
-    drawFrame(ctx, video, video.videoWidth, video.videoHeight, g, s, O.rot, O.mirror);
+    if (O.pv === 'frame') {                                           // whole frame + outline of what will be captured
+      const g0 = frameGeom(), s = view.width / g0.ew;
+      drawFrame(ctx, video, video.videoWidth, video.videoHeight, g0, s, O.rot, O.mirror);
+      const x = (gc.ccx - gc.cw / 2) * s, y = (gc.ccy - gc.ch / 2) * s, w = gc.cw * s, hh = gc.ch * s;
+      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.beginPath(); ctx.rect(0, 0, view.width, view.height); ctx.rect(x, y, w, hh); ctx.fill('evenodd');
+      ctx.lineWidth = Math.max(2, view.width / 420); ctx.strokeStyle = '#ffffff'; ctx.strokeRect(x, y, w, hh); ctx.restore();
+      positionGrid(gc, g0);
+    } else {
+      drawFrame(ctx, video, video.videoWidth, video.videoHeight, gc, view.width / gc.cw, O.rot, O.mirror);
+      positionGrid(gc, null);
+    }
   })();
+  let lastGp = '';
+  function positionGrid(gc, g0) {                                     // keep the guide lines on the crop area
+    const o = $('gridOv').style;
+    if (g0) {
+      const l = (gc.ccx - gc.cw / 2) / g0.ew * 100, t = (gc.ccy - gc.ch / 2) / g0.eh * 100, w = gc.cw / g0.ew * 100, hh = gc.ch / g0.eh * 100, k = [l, t, w, hh].map(v => v.toFixed(2)).join('|');
+      if (k !== lastGp) { o.left = l + '%'; o.top = t + '%'; o.width = w + '%'; o.height = hh + '%'; o.right = 'auto'; o.bottom = 'auto'; lastGp = k; }
+    } else if (lastGp !== 'full') { o.left = '0'; o.top = '0'; o.width = '100%'; o.height = '100%'; o.right = 'auto'; o.bottom = 'auto'; lastGp = 'full'; }
+  }
   window.addEventListener('resize', layoutView);
 
   $('viewWrap').addEventListener('pointerdown', () => { const a = document.activeElement; if (a && a !== document.body && a.blur) a.blur(); });   // clicking the view gives the keyboard back to the shortcuts
@@ -592,8 +627,8 @@
   let drag = null;
   view.addEventListener('pointerdown', e => { if (!stream) return; const g = curGeom(); drag = { x: e.clientX, y: e.clientY, ccx: g.ccx, ccy: g.ccy }; view.setPointerCapture(e.pointerId); view.classList.add('drag'); });
   view.addEventListener('pointermove', e => {
-    if (!drag) return; const g = curGeom(), sCss = view.getBoundingClientRect().width / g.cw;
-    const nx = drag.ccx - (e.clientX - drag.x) / sCss, ny = drag.ccy - (e.clientY - drag.y) / sCss;
+    if (!drag) return; const g = curGeom(), frame = O.pv === 'frame', sCss = view.getBoundingClientRect().width / (frame ? g.ew : g.cw), sgn = frame ? 1 : -1;
+    const nx = drag.ccx + sgn * (e.clientX - drag.x) / sCss, ny = drag.ccy + sgn * (e.clientY - drag.y) / sCss;
     const rx = (g.ew - g.cw) / 2, ry = (g.eh - g.ch) / 2;
     O.panX = rx > 0.5 ? Math.max(-1, Math.min(1, (nx - g.ew / 2) / rx)) : 0; O.panY = ry > 0.5 ? Math.max(-1, Math.min(1, (ny - g.eh / 2) / ry)) : 0;
   });
@@ -642,6 +677,7 @@
     const t = target; if (!t) return;
     enqueue(t.job, t.sno, t.kind, blob);
     log('Captured ' + (t.job ? t.job + ' · ' : '') + 'S No. ' + t.sno + ' ' + t.kind + ' (' + fmtSize(blob.size) + ')');
+    if (document.body.classList.contains('big') || document.body.classList.contains('fs')) toast('✓ S No. ' + t.sno + ' ' + (t.kind === 'huid' ? 'HUID' : 'Article') + ' captured');
     if (O.auto) target = findNext(cursor);
     if (target) { const i = lotRows().findIndex(r => r.sno === target.sno); if (i >= 0) cursor = i; }
     renderAll(); pump();
@@ -874,8 +910,29 @@
   $('kA').onclick = () => setKind('article'); $('kH').onclick = () => setKind('huid');
   $('btnMissing').onclick = () => { const t = findNext(cursor); if (t) setTarget(t); else toast('Nothing missing in this lot.'); };
   $('shutter').onclick = doCapture;
-  $('btnFull').onclick = () => { const w = $('viewWrap'); if (document.fullscreenElement) document.exitFullscreen(); else if (w.requestFullscreen) w.requestFullscreen(); };
-  document.addEventListener('fullscreenchange', () => setTimeout(layoutView, 120));
+  $('btnFull').onclick = () => { const c = $('center'); if (document.fullscreenElement) document.exitFullscreen(); else if (c.requestFullscreen) c.requestFullscreen(); };
+  document.addEventListener('fullscreenchange', () => { document.body.classList.toggle('fs', !!document.fullscreenElement); setTimeout(layoutView, 120); });
+
+  // panels + big preview
+  const effL = () => !!(O.big || (O.hideL === null ? window.innerWidth < 1000 : O.hideL));
+  const effR = () => !!(O.big || (O.hideR === null ? window.innerWidth < 1180 : O.hideR));
+  function applyPanels() {
+    const hl = effL(), hr = effR(), wide = window.innerWidth > 860;
+    $('left').classList.toggle('hide', hl); $('right').classList.toggle('hide', hr);
+    $('grid').style.gridTemplateColumns = wide ? [hl ? '' : 'var(--lc)', 'minmax(0,1fr)', hr ? '' : 'var(--rc)'].filter(Boolean).join(' ') : '';
+    document.body.classList.toggle('big', !!O.big);
+    $('btnBig').classList.toggle('on', !!O.big); $('bigBtn').textContent = O.big ? '⤡ Exit' : '⤢';
+    $('btnRows').classList.toggle('on', !hl); $('btnOpts').classList.toggle('on', !hr);
+    if (O.big && O.tab !== 'cam') setTab('cam');
+    setTimeout(layoutView, 30);
+  }
+  const toggleBig = () => { O.big = !O.big; saveO(); applyPanels(); };
+  const toggleRows = () => { const was = effL(); O.big = false; O.hideL = !was; saveO(); applyPanels(); };
+  const toggleOpts = () => { const was = effR(); O.big = false; O.hideR = !was; saveO(); applyPanels(); };
+  const togglePv = () => { O.pv = O.pv === 'frame' ? 'crop' : 'frame'; O.panX = O.panX; saveO(); syncOptsUI(); layoutView(); toast(O.pv === 'frame' ? 'Preview: full camera frame with crop outline' : 'Preview: exact crop only'); };
+  $('btnBig').onclick = toggleBig; $('bigBtn').onclick = toggleBig; $('btnRows').onclick = toggleRows; $('btnOpts').onclick = toggleOpts; $('pvBtn').onclick = togglePv;
+  $('pvSel').onchange = e => { O.pv = e.target.value; saveO(); syncOptsUI(); layoutView(); };
+  window.addEventListener('resize', applyPanels);
   $('btnKeys').onclick = () => $('keys').classList.remove('hide'); $('keysClose').onclick = () => $('keys').classList.add('hide');
 
   // option bindings
@@ -883,6 +940,7 @@
   ratioFill($('ratioSel')); ratioFill($('ratioQuick'));
   function syncOptsUI() {
     $('ratioSel').value = O.ratio; $('ratioQuick').value = O.ratio; $('customBox').style.display = O.ratio === 'custom' ? '' : 'none'; $('cw').value = O.cw; $('ch').value = O.ch;
+    $('pvSel').value = O.pv; $('pvBtn').textContent = O.pv === 'frame' ? '▣ Frame' : '▢ Crop';
     $('gridSel').value = O.grid; $('sizeSel').value = O.sizeMode; $('maxBox').style.display = O.sizeMode === 'custom' ? '' : 'none'; $('maxSide').value = O.maxSide;
     $('quality').value = O.quality; $('qualOut').textContent = Math.round(O.quality * 100) + '%'; $('impProc').value = O.impProc;
     $('timerSel').value = String(O.timer); $('optAuto').checked = O.auto; $('optReview').checked = O.review; $('optSound').checked = O.sound; $('optMirror').checked = O.mirror;
@@ -908,7 +966,7 @@
   const rotate = d => { O.rot = (O.rot + d + 360) % 360; O.panX = 0; O.panY = 0; saveO(); layoutView(); };
   $('rotL').onclick = () => rotate(-90); $('rotR').onclick = () => rotate(90);
   $('zoomSl').oninput = e => { setZoom(e.target.value); updateHud(); }; $('zoomReset').onclick = () => { resetView(); updateHud(); };
-  $('resetOpts').onclick = () => { if (!confirm('Reset all desktop-page settings?')) return; O = Object.assign({}, DEF); saveO(); syncOptsUI(); layoutView(); renderAll(); if (stream) startCam(); };
+  $('resetOpts').onclick = () => { if (!confirm('Reset all desktop-page settings?')) return; O = Object.assign({}, DEF); saveO(); syncOptsUI(); applyPanels(); layoutView(); renderAll(); if (stream) startCam(); };
   $('copyLog').onclick = async () => { try { await navigator.clipboard.writeText(logLines.join('\n')); toast('Log copied'); } catch (e) { toast('Select the log text and copy it manually.', true); } };
 
   // ---------- keyboard ----------
@@ -932,6 +990,7 @@
       't': () => { O.timer = cycle([0, 2, 3, 5, 10], O.timer, 1); saveO(); syncOptsUI(); toast('Timer: ' + (O.timer ? O.timer + ' s' : 'off')); },
       '+': () => { setZoom(O.zoom * 1.15); updateHud(); }, '=': () => { setZoom(O.zoom * 1.15); updateHud(); }, '-': () => { setZoom(O.zoom / 1.15); updateHud(); },
       '0': () => { resetView(); updateHud(); }, 'v': () => setTab('cam'), 'i': () => setTab('imp'),
+      'b': toggleBig, 'l': toggleRows, 'o': toggleOpts, 'p': togglePv,
       '/': () => $('rowQ').focus(), '?': () => $('keys').classList.remove('hide')
     };
     if (map[K]) { e.preventDefault(); map[K](); }
@@ -945,7 +1004,7 @@
   }, 15000);
 
   // ---------- go ----------
-  syncOptsUI(); setTab(O.tab === 'imp' ? 'imp' : 'cam'); layoutView(); renderImports(); renderAll();
+  syncOptsUI(); setTab(O.tab === 'imp' ? 'imp' : 'cam'); applyPanels(); layoutView(); renderImports(); renderAll();
   navigator.mediaDevices && navigator.mediaDevices.addEventListener && navigator.mediaDevices.addEventListener('devicechange', listDevices);
   init();
   if (new URLSearchParams(location.search).get('cam') !== '0') setTimeout(() => { if (parseHash().sid) startCam(); }, 500);   // ?cam=0 -> don't auto-start
