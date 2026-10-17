@@ -79,6 +79,19 @@
   body.big #banner, body.fs #banner { padding:3px 10px; }
   body.big #tKind, body.fs #tKind { font-size:16px; } body.big #tHuid, body.fs #tHuid { font-size:22px; }
   body.big #tRow, body.fs #tRow { font-size:12px; }
+  /* compact header in big mode */
+  body.big header { padding:3px 10px; gap:8px; } body.big header h1, body.big #prog, body.big #expTxt { display:none; }
+  /* SIDE-PANEL layout: info on the left, controls on the right, camera takes the full height in the middle */
+  body.rails #center { display:grid; grid-template-columns:230px minmax(0,1fr) 190px; grid-template-rows:minmax(0,1fr); gap:8px; padding:6px 8px; }
+  body.rails #paneCam { display:contents; }
+  body.rails #banner { grid-column:1; grid-row:1; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:8px; padding:12px; overflow:auto; }
+  body.rails #viewWrap { grid-column:2; grid-row:1; }
+  body.rails #ctl { grid-column:3; grid-row:1; flex-direction:column; justify-content:center; align-items:stretch; gap:8px; overflow:auto; padding:2px; }
+  body.rails #ctl > * { width:100%; } body.rails #ctl select { padding:8px; }
+  body.rails #shutter { order:-2; width:92px; height:92px; align-self:center; margin:0 auto 6px; }
+  body.rails .kindtog { order:-1; display:flex; flex-direction:column; gap:6px; } body.rails .kindtog button { width:100%; padding:10px; }
+  body.rails #tKind { font-size:20px; white-space:normal; } body.rails #tRow { font-size:13px; }
+  body.rails #tHuid { margin:6px 0 0; text-align:left; font-size:30px; word-break:break-all; } body.rails #tHuid.nh { font-size:14px; }
   #center:fullscreen { background:var(--bg); width:100vw; height:100vh; }
   #hud { position:absolute; left:10px; bottom:8px; font-size:12px; color:#cfd8e6; background:rgba(0,0,0,.5); padding:2px 8px; border-radius:8px; }
   #camState { position:absolute; right:10px; top:8px; font-size:12px; color:#cfd8e6; background:rgba(0,0,0,.5); padding:2px 8px; border-radius:8px; }
@@ -129,7 +142,7 @@
 </head>
 <body>
 <div id="app">
-  <header>
+  <header id="hdr">
     <h1>🖥 MANAK Desktop Capture</h1>
     <select id="lotSel" title="Lot (job card)"></select>
     <div id="prog"><div id="progBar"><div id="progFill"></div></div><div id="progTxt"></div></div>
@@ -212,6 +225,7 @@
         <div class="f"><label>Photo shape</label><select id="ratioSel"></select></div>
         <div class="two f" id="customBox" style="display:none"><div class="f"><label>Width</label><input type="number" id="cw" min="1" max="99" step="1"></div><div class="f"><label>Height</label><input type="number" id="ch" min="1" max="99" step="1"></div></div>
         <div class="f"><label>Preview shows</label><select id="pvSel"><option value="frame">Full camera frame + crop outline (bigger preview)</option><option value="crop">Exact crop only</option></select></div>
+        <div class="f"><label>Big-preview layout</label><select id="layoutSel"><option value="auto">Automatic (side panels when the preview gets bigger)</option><option value="rails">Always side panels (preview uses full height)</option><option value="stacked">Always stacked (info above, buttons below)</option></select></div>
         <div class="f"><label>Guide overlay</label><select id="gridSel"><option value="off">None</option><option value="thirds">Rule of thirds</option><option value="center">Centre cross</option><option value="grid4">4 × 4 grid</option></select></div>
       </div></details>
 
@@ -296,7 +310,7 @@
 
   // ---------- options (remembered in this browser) ----------
   const DEF = { ratio: '1:1', cw: 4, ch: 3, sizeMode: 'actual', maxSide: 2400, quality: 0.92, mirror: false, rot: 0, grid: 'off', timer: 0,
-    auto: true, review: false, sound: false, conc: 2, tries: 3, res: 'auto', deviceId: '', theme: 'auto', tab: 'cam', impProc: 'original', zoom: 1, panX: 0, panY: 0, filter: 'all', pv: 'frame', big: true, hideL: null, hideR: null };
+    auto: true, review: false, sound: false, conc: 2, tries: 3, res: 'auto', deviceId: '', theme: 'auto', tab: 'cam', impProc: 'original', zoom: 1, panX: 0, panY: 0, filter: 'all', pv: 'frame', big: true, hideL: null, hideR: null, layout: 'auto' };
   let O = Object.assign({}, DEF);
   try { Object.assign(O, JSON.parse(localStorage.getItem('mapu_desk') || '{}')); } catch (e) {}
   const saveO = () => { try { localStorage.setItem('mapu_desk', JSON.stringify(O)); } catch (e) {} };
@@ -571,7 +585,23 @@
   }
   const frameGeom = () => geom(video.videoWidth || 1280, video.videoHeight || 720, O.rot, 1, 0, 0, 0);     // whole camera frame (after rotate)
   const viewGeom = () => (O.pv === 'frame' ? frameGeom() : curGeom());
+  // Big preview: put the info + buttons in SIDE panels when that gives the camera a larger area (it is height-limited otherwise)
+  function decideRails() {
+    const cl = document.body.classList, bigish = O.big || !!document.fullscreenElement;
+    let on = false;
+    if (bigish && window.innerWidth > 900 && O.layout !== 'stacked') {
+      if (O.layout === 'rails') on = true;
+      else {
+        const g = viewGeom(), r = O.pv === 'frame' ? g.ew / g.eh : g.cw / g.ch;
+        const hdr = document.fullscreenElement ? 0 : ($('hdr') ? $('hdr').offsetHeight : 48), W = window.innerWidth - 16, H = window.innerHeight - hdr - 12;
+        const area = (w, hh) => { let ww = w, h2 = w / r; if (h2 > hh) { h2 = hh; ww = hh * r; } return ww * h2; };
+        on = area(W - 436 - 16, H - 11) > area(W - 16, H - 136) * 1.08;       // measured: stacked layout loses ~136 px of height, side panels ~11 px
+      }
+    }
+    cl.toggle('rails', on);
+  }
   function layoutView() {
+    decideRails();
     const wrap = $('viewWrap'), aw = Math.max(160, wrap.clientWidth - 16), ah = Math.max(120, wrap.clientHeight - 16), g = viewGeom(), r = O.pv === 'frame' ? g.ew / g.eh : g.cw / g.ch;
     let w = aw, h = w / r; if (h > ah) { h = ah; w = h * r; }
     vbox.style.width = Math.round(w) + 'px'; vbox.style.height = Math.round(h) + 'px';
@@ -932,6 +962,7 @@
   const togglePv = () => { O.pv = O.pv === 'frame' ? 'crop' : 'frame'; O.panX = O.panX; saveO(); syncOptsUI(); layoutView(); toast(O.pv === 'frame' ? 'Preview: full camera frame with crop outline' : 'Preview: exact crop only'); };
   $('btnBig').onclick = toggleBig; $('bigBtn').onclick = toggleBig; $('btnRows').onclick = toggleRows; $('btnOpts').onclick = toggleOpts; $('pvBtn').onclick = togglePv;
   $('pvSel').onchange = e => { O.pv = e.target.value; saveO(); syncOptsUI(); layoutView(); };
+  $('layoutSel').onchange = e => { O.layout = e.target.value; saveO(); layoutView(); };
   window.addEventListener('resize', applyPanels);
   $('btnKeys').onclick = () => $('keys').classList.remove('hide'); $('keysClose').onclick = () => $('keys').classList.add('hide');
 
@@ -940,7 +971,7 @@
   ratioFill($('ratioSel')); ratioFill($('ratioQuick'));
   function syncOptsUI() {
     $('ratioSel').value = O.ratio; $('ratioQuick').value = O.ratio; $('customBox').style.display = O.ratio === 'custom' ? '' : 'none'; $('cw').value = O.cw; $('ch').value = O.ch;
-    $('pvSel').value = O.pv; $('pvBtn').textContent = O.pv === 'frame' ? '▣ Frame' : '▢ Crop';
+    $('layoutSel').value = O.layout; $('pvSel').value = O.pv; $('pvBtn').textContent = O.pv === 'frame' ? '▣ Frame' : '▢ Crop';
     $('gridSel').value = O.grid; $('sizeSel').value = O.sizeMode; $('maxBox').style.display = O.sizeMode === 'custom' ? '' : 'none'; $('maxSide').value = O.maxSide;
     $('quality').value = O.quality; $('qualOut').textContent = Math.round(O.quality * 100) + '%'; $('impProc').value = O.impProc;
     $('timerSel').value = String(O.timer); $('optAuto').checked = O.auto; $('optReview').checked = O.review; $('optSound').checked = O.sound; $('optMirror').checked = O.mirror;
