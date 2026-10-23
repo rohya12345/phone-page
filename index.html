@@ -50,8 +50,15 @@
   .rsTools { display:flex; gap:8px; margin-bottom:6px; }
   .rsTools input { flex:1; min-width:0; padding:10px; font-size:16px; border:1px solid var(--line); border-radius:10px; background:transparent; color:inherit; }
   #rsList { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+  .upch { font-size:11px; font-weight:700; padding:1px 7px; border-radius:9px; background:rgba(127,127,127,.18); white-space:nowrap; }
+  .upch.ok { background:#dff2e0; color:var(--ok); } .upch.bad { background:#fbdcda; color:var(--err); } .upch.rdy { background:#e3f0ff; color:#1565c0; } .upch.wait { background:#fff0c9; color:var(--warn); }
+  .rsUp { padding:4px 11px; font-size:15px; border-radius:9px; } .rsUp:disabled { opacity:.35; }
+  #upLotBtn { margin-top:6px; padding:7px 14px; font-weight:700; background:var(--acc); color:#fff; border-color:var(--acc); }
+  .lotm { border:1px solid var(--line); border-radius:12px; padding:9px 10px; margin-top:8px; }
+  .lotm .lh { display:flex; align-items:center; gap:8px; margin-bottom:4px; } .lotm .lh b { flex:1; }
+  .lotm .ls { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; } .lotm .la { display:flex; gap:6px; } .lotm .la button { flex:1; padding:7px 8px; font-size:13px; }
   .rsItem { display:flex; align-items:center; gap:10px; text-align:left; padding:10px 12px; border-radius:12px; }
-  .rsItem b { white-space:nowrap; }
+  .rsItem b { white-space:nowrap; } .rsItem { cursor:pointer; }
   .rsItem .rsMeta { flex:1; min-width:0; font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .rsItem .rsSt { font-weight:700; font-size:13px; white-space:nowrap; }
   .rsItem.cur { border-color:var(--acc); box-shadow:0 0 0 2px var(--acc) inset; }
@@ -131,7 +138,7 @@
 
     <div class="target" id="targetCard">
       <button class="nb" id="prev" aria-label="Previous row">‹</button>
-      <div class="tmid"><div id="tKind">—</div><div id="tRow"></div><div id="tHuid"></div></div>
+      <div class="tmid"><div id="tKind">—</div><div id="tRow"></div><div id="tHuid"></div><button id="upLotBtn" class="hide">⬆ Upload this lot</button></div>
       <button class="nb" id="next" aria-label="Next row">›</button>
     </div>
 
@@ -167,6 +174,13 @@
   <div class="panel">
     <div class="sh"><span>Settings</span><button id="sheetClose">✕ Close</button></div>
 
+    <div class="sec">⬆ Upload to MANAK</div>
+    <div class="muted" id="pcLine" style="margin-bottom:8px;">PC status: …</div>
+    <div class="alt"><button id="upRow" class="primary">⬆ This row</button><button id="upLot">⬆ This lot</button></div>
+    <div id="lotsMini"></div>
+    <div class="alt" style="margin-top:8px;"><button id="upAll">⬆ All lots that have photos</button></div>
+    <div class="muted" id="upInfo" style="margin-top:6px;">The upload runs on your PC (in the extension). Keep its “Capture from phone” window open.</div>
+
     <div class="sec">Row</div>
     <div class="nav"><select id="rowSel" aria-label="Row"></select></div>
     <div class="nav" style="margin-top:8px;"><button id="btnMissing" style="flex:1;">⏭ Jump to next missing photo</button></div>
@@ -192,6 +206,8 @@
     <div class="muted" id="zoomHint">Pinch on the camera, or use the 1× 2× 3× buttons on it.</div>
 
     <label class="chk"><input type="checkbox" id="auto" checked> Auto-advance after each photo</label>
+    <div class="sec">Photos to capture</div>
+    <select id="capMode" aria-label="Photos to capture"><option value="both">Article + HUID</option><option value="article">Article only</option><option value="huid">HUID only</option></select>
 
     <div class="sec">Other ways to add a photo</div>
     <div class="alt"><button id="btnApp">📱 Camera app</button><button id="btnGal">🖼 Gallery</button></div>
@@ -228,10 +244,12 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const KIND_LABEL = { article: '🖼 ARTICLE photo', huid: '🔖 HUID photo' };
 
-  let sid = '', tok = '', rows = [], lot = '', cursor = 0, target = null, started = false, pollTimer = null;
+  let pcMeta = {}, cmdBusy = false, sid = '', tok = '', rows = [], lot = '', cursor = 0, target = null, started = false, pollTimer = null;
   const S = {};                         // "job|sno|kind" -> { st:'queued'|'sending'|'sent'|'fail', blob, thumb, err }
   const keyOf = (job, sno, kind) => job + '|' + sno + '|' + kind;
   const sendQ = []; let active = 0;
+  let capMode = 'both'; try { capMode = localStorage.getItem('mapu_capmode') || 'both'; } catch (e) {}   // which photos to capture: both | article | huid
+  if (!['both', 'article', 'huid'].includes(capMode)) capMode = 'both';
 
   // ---------- unsent photos survive a refresh / bad signal; auto-removed after 24 h ----------
   const DAY = 24 * 3600 * 1000, IDB = 'mapu_phone', STORE = 'unsent';
@@ -309,15 +327,26 @@
     bar('Connecting…');
     await refresh(true);
   }
+  // apply what the relay returned (rows + upload state + live PC status)
+  function pcSuffix() {
+    const m = pcMeta || {};
+    if (!Object.keys(m).length) return '';
+    if (m.allow === false) return ' · PC: remote upload OFF';
+    if (m.run === 'running') return ' · PC uploading (' + (m.pending || 0) + ' left)';
+    if (m.halt) return ' · PC paused ⚠';
+    return m.failed ? ' · PC: ' + m.failed + ' failed' : ' · PC idle';
+  }
+  function applyServer(r) {
+    pcMeta = r.meta || {};
+    rows = (r.rows || []).map(x => ({ job: x.job || '', sno: x.sno, tag: x.tag || '', huid: x.huid || '', item: x.item || '', a: !!x.a, h: !!x.h, nh: !!x.nh, st: x.st || '', note: x.note || '' }));
+    const jobs = lots(); if (!jobs.includes(lot)) lot = jobs[0] || '';
+  }
   async function refresh(first) {
     try {
       const r = await post({ action: 'phone_init', session_id: sid, phone_token: tok }, 15000);
       if (!r.ok) { bar((r.error || 'Session invalid') + '. Scan the QR code again.', 'err'); clearInterval(pollTimer); started = false; return; }
-      bar('✅ Connected', 'ok');
+      applyServer(r); bar('✅ Connected' + pcSuffix(), (pcMeta.halt || pcMeta.allow === false) ? 'err' : 'ok');
       $('pairCard').classList.add('hide'); $('mainCard').classList.remove('hide'); requestAnimationFrame(layoutCam);
-      rows = (r.rows || []).map(x => ({ job: x.job || '', sno: x.sno, tag: x.tag || '', huid: x.huid || '', item: x.item || '', a: !!x.a, h: !!x.h, nh: !!x.nh }));
-      const jobs = lots();
-      if (!jobs.includes(lot)) lot = jobs[0] || '';
       if (!started) {
         started = true;
         pollTimer = setInterval(() => refresh(false), 8000);
@@ -332,19 +361,96 @@
     }
   }
 
+  // ---------- ask the PC (the extension) to upload to MANAK ----------
+  const hasPhotos = r => r.a || (!r.nh && r.h) || ['article', 'huid'].some(k => ['sent', 'queued', 'sending'].includes((S[keyOf(r.job, r.sno, k)] || {}).st));
+  const photosBusy = r => ['article', 'huid'].some(k => ['queued', 'sending'].includes((S[keyOf(r.job, r.sno, k)] || {}).st));
+  const lotLabel = j => (j ? 'Job ' + j : '(no job no.)');
+  async function sendCommand(cmd, label) {
+    if (!sid) return;
+    if (cmdBusy) { toast('Wait for the previous request…'); return; }
+    cmdBusy = true;
+    try {
+      const r = await post({ action: 'command', session_id: sid, phone_token: tok, cmd }, 15000);
+      if (!r.ok) { toast('Request failed: ' + (r.error || 'error')); return; }
+      toast('⬆ Upload requested (' + label + ') — waiting for the PC…');
+      watchCmd(r.id);
+    } catch (e) { toast('Could not reach the relay: ' + e.message); }
+    finally { cmdBusy = false; }
+  }
+  async function watchCmd(id) {
+    const t0 = Date.now(); let warned = false;
+    while (Date.now() - t0 < 60000) {
+      await sleep(2000);
+      try {
+        const r = await post({ action: 'phone_init', session_id: sid, phone_token: tok }, 10000);
+        if (!r.ok) return; applyServer(r); renderAll();
+        const c = (r.cmds || []).find(x => x.id === id);
+        if (c && c.state !== 'new') { toast((c.state === 'taken' ? '✓ ' : '✗ ') + c.msg); return; }
+        if (!warned && Date.now() - t0 > 20000) { warned = true; toast('The PC has not answered yet — is the extension’s “Capture from phone” window open?'); }
+      } catch (e) {}
+    }
+  }
+  async function uploadRows(list) {
+    list = (list || []).filter(Boolean);
+    if (!list.length) { toast('No row selected.'); return; }
+    const ok = list.filter(hasPhotos);
+    if (!ok.length) { toast('No photos on the PC for S No. ' + list[0].sno + ' yet — take them first.'); return; }
+    if (ok.some(photosBusy)) { toast('Photos are still being sent — try again in a moment.'); return; }
+    const done = ok.filter(r => r.st === 'done'); let force = false, send = ok;
+    if (done.length) {
+      if (confirm(done.length === 1 ? 'S No. ' + done[0].sno + ' is already uploaded to MANAK. Upload it again?' : done.length + ' rows are already uploaded. Upload them again?')) force = true;
+      else send = ok.filter(r => r.st !== 'done');
+    }
+    if (!send.length) return;
+    await sendCommand({ type: 'upload_rows', rows: send.map(r => ({ job: r.job, sno: r.sno })), force }, send.length === 1 ? 'S No. ' + send[0].sno : send.length + ' rows');
+  }
+  const uploadLots = (jobs, retry) => sendCommand({ type: retry ? 'retry_lot' : 'upload_lot', jobs }, (retry ? 'retry · ' : '') + jobs.map(lotLabel).join(', '));
+  function upChip(r) {
+    if (r.st === 'done') return '<span class="upch ok">⬆✓</span>';
+    if (r.st === 'uploading') return '<span class="upch wait">⬆…</span>';
+    if (r.st === 'failed') return '<span class="upch bad">⬆✗</span>';
+    if (r.st === 'pending') return '<span class="upch rdy">⬆•</span>';
+    return '';
+  }
+  function renderUpload() {
+    const m = pcMeta || {}, r = rowOfTarget() || lotRows()[cursor], lr = lotRows();
+    let t = 'PC status unknown (update the extension)';
+    if (Object.keys(m).length) t = m.allow === false ? '⚠ Remote upload is switched OFF in the extension window on the PC' : m.run === 'running' ? '⬆ PC is uploading ' + (m.cur || '') + ' — ' + (m.pending || 0) + ' left' : m.halt ? '⏸ PC paused: ' + m.halt : 'PC idle' + (m.done ? ' · ' + m.done + ' uploaded' : '') + (m.failed ? ' · ' + m.failed + ' failed' : '');
+    $('pcLine').textContent = t;
+    $('upRow').disabled = !r || !hasPhotos(r); $('upRow').textContent = r ? '⬆ S No. ' + r.sno : '⬆ This row';
+    $('upLot').disabled = !lr.some(hasPhotos);
+    // lots
+    const m2 = new Map();
+    for (const x of rows) { let l = m2.get(x.job); if (!l) { l = { job: x.job, rows: 0, cap: 0, ready: 0, done: 0, failed: 0, up: 0 }; m2.set(x.job, l); } l.rows++; if (hasPhotos(x)) l.cap++; if (x.st === 'pending') l.ready++; if (x.st === 'done') l.done++; if (x.st === 'failed') l.failed++; if (x.st === 'uploading') l.up++; }
+    const ls = [...m2.values()].sort((a, b) => (a.job === lot ? -1 : b.job === lot ? 1 : String(b.job).localeCompare(String(a.job), undefined, { numeric: true })));
+    $('lotsMini').innerHTML = ls.map(l => '<div class="lotm" data-job="' + esc(l.job) + '"><div class="lh"><b>' + esc(lotLabel(l.job)) + '</b>' + (l.job === lot ? '<span class="upch rdy">current</span>' : '') + '</div><div class="ls"><span class="upch">' + l.rows + ' rows</span><span class="upch">' + l.cap + ' with photos</span>' +
+      (l.ready ? '<span class="upch rdy">' + l.ready + ' ready</span>' : '') + (l.up ? '<span class="upch wait">' + l.up + ' uploading</span>' : '') + (l.done ? '<span class="upch ok">' + l.done + ' uploaded</span>' : '') + (l.failed ? '<span class="upch bad">' + l.failed + ' failed</span>' : '') + '</div>' +
+      '<div class="la"><button class="primary" data-act="up"' + (l.cap - l.done - l.failed > 0 || l.ready ? '' : ' disabled') + '>⬆ Upload lot</button>' + (l.failed ? '<button data-act="retry">↻ Retry ' + l.failed + ' failed</button>' : '') + '</div></div>').join('');
+    $('upAll').disabled = !ls.some(l => l.cap - l.done - l.failed > 0 || l.ready);
+    // the "Lot complete" card gets an upload button
+    const complete = !target && lr.length > 0, anyTodo = lr.some(x => hasPhotos(x) && x.st !== 'done');
+    $('upLotBtn').classList.toggle('hide', !(complete && anyTodo));
+  }
+  $('lotsMini').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b) return; const job = b.closest('.lotm').dataset.job; closeSheet(); uploadLots([job], b.dataset.act === 'retry'); });
+  $('upRow').onclick = () => { closeSheet(); uploadRows([rowOfTarget() || lotRows()[cursor]]); };
+  $('upLot').onclick = () => { closeSheet(); uploadLots([lot], false); };
+  $('upAll').onclick = () => { closeSheet(); uploadLots([...new Set(rows.filter(hasPhotos).map(r => r.job))], false); };
+  $('upLotBtn').onclick = e => { e.stopPropagation(); uploadLots([lot], false); };
+
   // ---------- lots / rows ----------
   const lots = () => [...new Set(rows.map(r => r.job))];
   const lotRows = () => rows.filter(r => r.job === lot);
   const stOf = (r, kind) => (S[keyOf(r.job, r.sno, kind)] || {}).st;
-  const rowDone = r => has(r, 'article') && (r.nh || has(r, 'huid'));    // Article-only rows (no HUID) need just the Article
+  const needA = () => capMode !== 'huid', needH = r => capMode !== 'article' && !r.nh;      // which photos this capture mode needs
+  const rowDone = r => (!needA() || has(r, 'article')) && (!needH(r) || has(r, 'huid'));    // Article-only rows (no HUID) need just the Article
   const has = (r, kind) => (kind === 'huid' ? r.h : r.a) || ['queued', 'sending', 'sent'].includes(stOf(r, kind));
 
   function findNext(from) {                       // first missing photo, Article before HUID, wrapping around the lot
     const lr = lotRows(); if (!lr.length) return null;
     for (let n = 0; n < lr.length; n++) {
       const i = (from + n) % lr.length, r = lr[i];
-      if (!has(r, 'article')) return { job: r.job, sno: r.sno, kind: 'article' };
-      if (!r.nh && !has(r, 'huid')) return { job: r.job, sno: r.sno, kind: 'huid' };
+      if (needA() && !has(r, 'article')) return { job: r.job, sno: r.sno, kind: 'article' };
+      if (needH(r) && !has(r, 'huid')) return { job: r.job, sno: r.sno, kind: 'huid' };
     }
     return null;
   }
@@ -356,7 +462,7 @@
   const rowOfTarget = () => target && rows.find(r => r.job === target.job && r.sno === target.sno);
 
   // ---------- render ----------
-  function renderAll() { renderLots(); renderTarget(); renderSlots(); renderRowSel(); renderSend(); }
+  function renderAll() { renderLots(); renderTarget(); renderSlots(); renderRowSel(); renderSend(); renderUpload(); }
 
   function renderLots() {
     const sel = $('lotSel'), jobs = lots();
@@ -370,10 +476,10 @@
     }
     sel.value = lot;
     document.title = (lot ? 'Job ' + lot + ' — ' : '') + 'MANAK Phone Capture';
-    const lr = lotRows(), total = lr.reduce((a, r) => a + (r.nh ? 1 : 2), 0);
-    const n = lr.reduce((a, r) => a + (has(r, 'article') ? 1 : 0) + (!r.nh && has(r, 'huid') ? 1 : 0), 0);
+    const lr = lotRows(), total = lr.reduce((a, r) => a + (needA() ? 1 : 0) + (needH(r) ? 1 : 0), 0);
+    const n = lr.reduce((a, r) => a + (needA() && has(r, 'article') ? 1 : 0) + (needH(r) && has(r, 'huid') ? 1 : 0), 0);
     $('progBar').style.width = total ? (100 * n / total) + '%' : '0%';
-    $('progTxt').textContent = total ? n + '/' + total + ' 📷' : 'no rows';
+    $('progTxt').textContent = (total ? n + '/' + total + ' 📷' : 'no rows') + (capMode === 'huid' ? ' · HUID only' : capMode === 'article' ? ' · Article only' : '');
   }
   function renderTarget() {
     const card = $('targetCard'), r = rowOfTarget();
@@ -388,7 +494,7 @@
     }
     card.classList.remove('done');
     $('tKind').textContent = KIND_LABEL[target.kind];
-    $('tRow').textContent = 'S No. ' + r.sno + (r.tag ? ' · Tag ' + r.tag : '') + (r.item ? ' · ' + r.item : '');
+    $('tRow').textContent = 'S No. ' + r.sno + (r.tag ? ' · Tag ' + r.tag : '') + (r.item ? ' · ' + r.item : '') + (r.st === 'done' ? ' · ⬆✓ uploaded' : r.st === 'failed' ? ' · ⬆✗ failed' : r.st === 'uploading' ? ' · ⬆… uploading' : '');
     $('tHuid').textContent = r.nh ? 'No HUID — Article photo only' : (r.huid || '');
     $('tHuid').classList.toggle('nh', !!r.nh);
   }
@@ -403,7 +509,8 @@
       th.innerHTML = e && e.thumb ? '<img src="' + e.thumb + '">' : (flag ? '✓ on PC' : 'no photo');
       const sz = e && e.blob ? ' · ' + fmtSize(e.blob.size) : '';
       st.textContent = !e ? (flag ? 'Saved ✓' : '') : e.st === 'queued' ? 'Waiting…' + sz : e.st === 'sending' ? 'Sending…' + sz : e.st === 'sent' ? 'Sent ✓' + sz : 'Failed ✗';
-    }    $('slotH').classList.toggle('invis', !!(r && r.nh));            // no HUID -> hide the HUID slot (after className resets above)
+    }    $('slotA').classList.toggle('invis', capMode === 'huid');         // HUID-only mode -> hide the Article slot
+    $('slotH').classList.toggle('invis', !!(r && r.nh) || capMode === 'article');            // no HUID -> hide the HUID slot (after className resets above)
     $('noHuidNote').classList.toggle('hide', !(r && r.nh));
   }
   function renderRowSel() {
@@ -434,7 +541,7 @@
     renderAll();
   };
   const goRow = n => { const lr = lotRows(); if (!lr.length) return; cursor = (n + lr.length) % lr.length; const r = lr[cursor];
-    setTarget(!has(r, 'article') ? { job: r.job, sno: r.sno, kind: 'article' } : (!r.nh && !has(r, 'huid')) ? { job: r.job, sno: r.sno, kind: 'huid' } : { job: r.job, sno: r.sno, kind: 'article' }); };
+    setTarget((needA() && !has(r, 'article')) ? { job: r.job, sno: r.sno, kind: 'article' } : (needH(r) && !has(r, 'huid')) ? { job: r.job, sno: r.sno, kind: 'huid' } : { job: r.job, sno: r.sno, kind: (capMode === 'huid' && !r.nh) ? 'huid' : 'article' }); };
   $('prev').onclick = () => goRow(cursor - 1);
   $('next').onclick = () => goRow(cursor + 1);
   $('rowSel').onchange = e => goRow(Number(e.target.value));
@@ -678,11 +785,13 @@
     lr.forEach((r, i) => {
       if (only && rowDone(r)) return;
       if (q && !r.sno.startsWith(q)) return;
-      const b = document.createElement('button');
+      const b = document.createElement('div'); b.setAttribute('role', 'button');
       b.className = 'rsItem' + (cur && cur.sno === r.sno ? ' cur' : '') + (rowDone(r) ? ' done' : '');
       const meta = [r.tag ? 'Tag ' + r.tag : '', r.item, r.nh ? 'no HUID' : r.huid].filter(Boolean).join(' · ');
       b.innerHTML = '<b>S No. ' + esc(r.sno) + '</b><span class="rsMeta">' + esc(meta) + '</span><span class="rsSt">' +
-        (has(r, 'article') ? 'A✓' : 'A–') + (r.nh ? '' : ' ' + (has(r, 'huid') ? 'H✓' : 'H–')) + '</span>';
+        (has(r, 'article') ? 'A✓' : 'A–') + (r.nh ? '' : ' ' + (has(r, 'huid') ? 'H✓' : 'H–')) + '</span>' + upChip(r) +
+        '<button class="rsUp" title="Upload this row to MANAK"' + (hasPhotos(r) && r.st !== 'uploading' ? '' : ' disabled') + '>⬆</button>';
+      b.querySelector('.rsUp').onclick = ev => { ev.stopPropagation(); closeRow(); uploadRows([r]); };
       b.onclick = () => { closeRow(); goRow(i); };
       list.appendChild(b);
     });
@@ -710,6 +819,12 @@
   $('sheetClose').onclick = closeSheet;
   sheet.querySelector('.back').onclick = closeSheet;
   ['btnApp', 'btnGal', 'btnMissing'].forEach(id => $(id).addEventListener('click', closeSheet));
+  $('capMode').value = capMode;
+  $('capMode').onchange = e => {
+    capMode = e.target.value; try { localStorage.setItem('mapu_capmode', capMode); } catch (x) {}
+    target = findNext(cursor); renderAll(); closeSheet();
+    toast(capMode === 'huid' ? 'HUID photos only' : capMode === 'article' ? 'Article photos only' : 'Article + HUID');
+  };
   renderChips(); layoutCam();
   init();
 })();
