@@ -54,6 +54,19 @@
   .rs { display:flex; gap:4px; }
   .chip { font-size:11px; font-weight:700; padding:1px 6px; border-radius:9px; background:rgba(127,127,127,.18); }
   .chip.ok { background:#dff2e0; color:var(--ok); } .chip.bad { background:#fbdcda; color:var(--err); } .chip.wait { background:#fff0c9; color:var(--warn); }
+  .chip.rdy { background:#e3f0ff; color:#1565c0; }
+  .ub { padding:1px 7px; font-size:12px; border-radius:7px; line-height:1.4; } .ub:disabled { opacity:.35; }
+  #pcPill { padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; background:rgba(127,127,127,.18); white-space:nowrap; max-width:300px; overflow:hidden; text-overflow:ellipsis; }
+  #pcPill.run { background:#e3f0ff; color:#1565c0; } #pcPill.err { background:#fde5e3; color:var(--err); } #pcPill.ok { background:#e3f4e4; color:var(--ok); }
+  #upBar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; }
+  #paneLots { flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; }
+  #lotsScroll { flex:1; min-height:0; overflow:auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:10px; align-content:start; }
+  .lotc { border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden; } .lotc.sel { border-color:var(--ok); box-shadow:0 0 0 1px var(--ok) inset; } .lotc.cur { background:rgba(45,91,215,.05); }
+  .lotc-h { display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid var(--line); } .lotc-h b { flex:1; } .lotc-h input { width:17px; height:17px; }
+  .lotc-st { display:flex; flex-wrap:wrap; gap:5px; padding:8px 10px 2px; } .lotc-st span { font-size:11px; font-weight:700; border-radius:10px; padding:1px 8px; background:rgba(127,127,127,.16); }
+  .lotc-st .ok { background:#dff2e0; color:var(--ok); } .lotc-st .bad { background:#fbdcda; color:var(--err); } .lotc-st .rdy { background:#e3f0ff; color:#1565c0; } .lotc-st .wrn { background:#fff0c9; color:var(--warn); }
+  .lotc .bar { height:6px; margin:6px 10px; border-radius:4px; background:rgba(127,127,127,.22); overflow:hidden; } .lotc .bar i { display:block; height:100%; background:var(--ok); }
+  .lotc-act { display:flex; gap:6px; padding:4px 10px 10px; flex-wrap:wrap; } .lotc-act button { flex:1; min-width:90px; padding:5px 8px; font-size:12px; }
   .empty { padding:18px; text-align:center; color:var(--muted); }
 
   /* centre */
@@ -74,7 +87,7 @@
   #vctl button { background:rgba(0,0,0,.55); color:#fff; border:1px solid rgba(255,255,255,.35); padding:3px 10px; border-radius:12px; font-size:12px; }
   #vctl button:hover { border-color:#fff; }
   /* big preview / fullscreen: the camera gets (almost) the whole window */
-  body.big .tabs, body.big #slots, body.fs .tabs, body.fs #slots { display:none; }
+  body.big .tabs, body.big #slots, body.big #upBar, body.fs .tabs, body.fs #slots, body.fs #upBar { display:none; }
   body.big #center, body.fs #center { padding:6px 8px; gap:6px; }
   body.big #banner, body.fs #banner { padding:3px 10px; }
   body.big #tKind, body.fs #tKind { font-size:16px; } body.big #tHuid, body.fs #tHuid { font-size:22px; }
@@ -148,7 +161,9 @@
     <div id="prog"><div id="progBar"><div id="progFill"></div></div><div id="progTxt"></div></div>
     <span id="pill">Starting…</span>
     <span class="muted small" id="expTxt"></span>
+    <span id="pcPill" title="Status of the extension on the PC">PC: …</span>
     <span class="sp"></span>
+    <button id="hUpRow" title="Upload the selected row to MANAK (U)">⬆ Row</button><button id="hUpLot" title="Upload this whole lot to MANAK (Shift+U)">⬆ Lot</button>
     <button id="btnRows" title="Show / hide the rows panel (L)">◧ Rows</button><button id="btnOpts" title="Show / hide the options panel (O)">Options ◨</button><button id="btnBig" title="Big preview (B)">⤢ Big preview</button>
     <button id="btnKeys" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>
   </header>
@@ -169,7 +184,7 @@
         <div id="tHuid"></div>
       </div>
 
-      <div class="tabs"><button id="tabCam" class="on">📷 Camera</button><button id="tabImp">📁 Import files <span id="impBadge" class="chip hide">0</span></button></div>
+      <div class="tabs"><button id="tabCam" class="on">📷 Camera</button><button id="tabImp">📁 Import files <span id="impBadge" class="chip hide">0</span></button><button id="tabLots">📦 Lots <span id="lotsBadge" class="chip hide">0</span></button></div>
 
       <div id="paneCam">
         <div id="viewWrap">
@@ -200,6 +215,18 @@
         <div id="impWrap"><table><thead><tr><th></th><th>File</th><th>Job</th><th>S No.</th><th>Type</th><th>Match</th><th></th></tr></thead><tbody id="impBody"></tbody></table><div id="impEmpty" class="empty">Nothing imported yet.</div></div>
         <div class="rg"><button class="primary" id="impSend" disabled>Send matched (0)</button><button id="impClear">Clear list</button><span class="muted small" id="impInfo"></span></div>
       </div>
+
+      <div id="paneLots" class="hide">
+        <div id="lotsSum" class="small"></div>
+        <div class="rg" style="flex-wrap:wrap;">
+          <button id="lAll">☑ All</button><button id="lNone">☐ None</button><button id="lReady">Only ready</button>
+          <button class="primary" id="lUpload">⬆ Upload selected lots to MANAK</button><button id="lRetry">↻ Retry failed (selected)</button>
+        </div>
+        <div id="lotsScroll"></div>
+        <div class="muted small">The upload itself runs on the PC (in the extension, in your logged-in MANAK session). Keep the extension's “Capture from phone” window open on the PC.</div>
+      </div>
+
+      <div id="upBar"><button id="upRow" class="primary">⬆ Upload this row to MANAK</button><button id="upLot">⬆ Upload this lot</button><span id="upInfo" class="muted"></span></div>
 
       <div id="slots">
         <div class="slot" id="slotA"><div class="th" id="thA"></div><div><div class="t">🖼 Article</div><div class="st" id="stA"></div></div><div class="b"><button id="retakeA" title="Retake Article">Retake</button></div></div>
@@ -238,6 +265,7 @@
 
       <details open><summary>⚡ Capture behaviour</summary><div class="opt">
         <div class="f"><label>Self-timer</label><select id="timerSel"><option value="0">Off</option><option value="2">2 s</option><option value="3">3 s</option><option value="5">5 s</option><option value="10">10 s</option></select></div>
+        <div class="f"><label>Photos to capture</label><select id="optCapMode"><option value="both">Article + HUID</option><option value="article">Article only</option><option value="huid">HUID only</option></select></div>
         <div class="f in"><input type="checkbox" id="optAuto"><label for="optAuto">Auto-advance to the next missing photo</label></div>
         <div class="f in"><input type="checkbox" id="optReview"><label for="optReview">Review &amp; edit before sending</label></div>
         <div class="f in"><input type="checkbox" id="optSound"><label for="optSound">Shutter sound</label></div>
@@ -285,7 +313,7 @@
     <kbd>T</kbd><span>Cycle self-timer</span><kbd>+</kbd> <kbd>−</kbd><span>Zoom in / out</span>
     <kbd>0</kbd><span>Reset zoom &amp; position</span><kbd>V</kbd> / <kbd>I</kbd><span>Camera tab / Import tab</span>
     <kbd>/</kbd><span>Search rows</span><kbd>Ctrl</kbd>+<kbd>V</kbd><span>Paste a photo for the selected row</span>
-    <kbd>B</kbd><span>Big preview mode</span><kbd>L</kbd> / <kbd>O</kbd><span>Hide / show rows · options panel</span>
+    <kbd>U</kbd> / <kbd>Shift</kbd>+<kbd>U</kbd><span>Upload selected row / whole lot to MANAK</span><kbd>B</kbd><span>Big preview mode</span><kbd>L</kbd> / <kbd>O</kbd><span>Hide / show rows · options panel</span>
     <kbd>P</kbd><span>Preview: full frame ↔ exact crop</span><kbd>?</kbd><span>This help</span><kbd>Esc</kbd><span>Close windows</span>
   </div>
   <div style="text-align:right;margin-top:12px"><button id="keysClose">Close</button></div>
@@ -310,9 +338,10 @@
 
   // ---------- options (remembered in this browser) ----------
   const DEF = { ratio: '1:1', cw: 4, ch: 3, sizeMode: 'actual', maxSide: 2400, quality: 0.92, mirror: false, rot: 0, grid: 'off', timer: 0,
-    auto: true, review: false, sound: false, conc: 2, tries: 3, res: 'auto', deviceId: '', theme: 'auto', tab: 'cam', impProc: 'original', zoom: 1, panX: 0, panY: 0, filter: 'all', pv: 'frame', big: true, hideL: null, hideR: null, layout: 'auto' };
+    auto: true, review: false, sound: false, conc: 2, tries: 3, res: 'auto', deviceId: '', theme: 'auto', tab: 'cam', impProc: 'original', zoom: 1, panX: 0, panY: 0, filter: 'all', selLots: null, pv: 'frame', big: true, hideL: null, hideR: null, layout: 'auto', capMode: 'both' };
   let O = Object.assign({}, DEF);
   try { Object.assign(O, JSON.parse(localStorage.getItem('mapu_desk') || '{}')); } catch (e) {}
+  if (!['both', 'article', 'huid'].includes(O.capMode)) O.capMode = 'both';
   const saveO = () => { try { localStorage.setItem('mapu_desk', JSON.stringify(O)); } catch (e) {} };
 
   const RATIOS = { '1:1': 1, '4:3': 4 / 3, '3:4': 3 / 4, '3:2': 3 / 2, '2:3': 2 / 3, '16:9': 16 / 9, '9:16': 9 / 16, '5:4': 5 / 4, '4:5': 4 / 5, 'full': 0, 'custom': -1 };
@@ -328,7 +357,7 @@
   function pill(t, cls) { const p = $('pill'); p.textContent = t; p.className = cls || ''; }
 
   // ---------- relay ----------
-  let sid = '', tok = '', rows = [], lot = '', cursor = 0, target = null, started = false, pollTimer = null, expiresAt = 0, restored = false;
+  let pcMeta = {}, cmdBusy = false, sid = '', tok = '', rows = [], lot = '', cursor = 0, target = null, started = false, pollTimer = null, expiresAt = 0, restored = false;
   const S = {};                              // "job|sno|kind" -> { st:'queued'|'sending'|'sent'|'fail', blob, thumb, err, size }
   const keyOf = (job, sno, kind) => job + '|' + sno + '|' + kind;
   const sendQ = []; let active = 0;
@@ -353,15 +382,18 @@
   function showUnpaired() {
     $('rowList').innerHTML = '<div class="empty">Not paired yet.<br><br>In the Chrome extension open <b>📱 Capture from phone</b> and press <b>🖥 Open on this computer</b>.</div>';
   }
+  // apply what the relay returned (rows + upload state + live PC status)
+  function applyServer(r) {
+    expiresAt = r.expires_at ? new Date(r.expires_at).getTime() : 0;
+    pcMeta = r.meta || {};
+    rows = (r.rows || []).map(x => ({ job: x.job || '', sno: x.sno, tag: x.tag || '', huid: x.huid || '', item: x.item || '', a: !!x.a, h: !!x.h, nh: !!x.nh, st: x.st || '', note: x.note || '' }));
+    const jobs = lots(); if (!jobs.includes(lot)) lot = jobs[0] || '';
+  }
   async function refresh(first) {
     try {
       const r = await post({ action: 'phone_init', session_id: sid, phone_token: tok }, 15000);
       if (!r.ok) { pill('Session invalid', 'err'); toast((r.error || 'Session invalid') + ' — open the page again from the extension.', true); clearInterval(pollTimer); started = false; return; }
-      pill('Connected', 'ok');
-      expiresAt = r.expires_at ? new Date(r.expires_at).getTime() : 0;
-      rows = (r.rows || []).map(x => ({ job: x.job || '', sno: x.sno, tag: x.tag || '', huid: x.huid || '', item: x.item || '', a: !!x.a, h: !!x.h, nh: !!x.nh }));
-      const jobs = lots();
-      if (!jobs.includes(lot)) lot = jobs[0] || '';
+      pill('Connected', 'ok'); applyServer(r);
       if (!started) { started = true; pollTimer = setInterval(() => refresh(false), 8000); }
       if (first || !target) { cursor = 0; target = findNext(0); }
       renderAll();
@@ -377,7 +409,8 @@
   const lotRows = () => rows.filter(r => r.job === lot);
   const stOf = (r, kind) => (S[keyOf(r.job, r.sno, kind)] || {}).st;
   const has = (r, kind) => (kind === 'huid' ? r.h : r.a) || ['queued', 'sending', 'sent'].includes(stOf(r, kind));
-  const rowDone = r => has(r, 'article') && (r.nh || has(r, 'huid'));
+  const needA = () => O.capMode !== 'huid', needH = r => O.capMode !== 'article' && !r.nh;      // which photos this capture mode needs
+  const rowDone = r => (!needA() || has(r, 'article')) && (!needH(r) || has(r, 'huid'));
   const rowOfTarget = () => target && rows.find(r => r.job === target.job && r.sno === target.sno);
   const curRow = () => rowOfTarget() || lotRows()[cursor];
 
@@ -385,8 +418,8 @@
     const lr = lotRows(); if (!lr.length) return null;
     for (let n = 0; n < lr.length; n++) {
       const i = (from + n) % lr.length, r = lr[i];
-      if (!has(r, 'article')) return { job: r.job, sno: r.sno, kind: 'article' };
-      if (!r.nh && !has(r, 'huid')) return { job: r.job, sno: r.sno, kind: 'huid' };
+      if (needA() && !has(r, 'article')) return { job: r.job, sno: r.sno, kind: 'article' };
+      if (needH(r) && !has(r, 'huid')) return { job: r.job, sno: r.sno, kind: 'huid' };
     }
     return null;
   }
@@ -394,12 +427,68 @@
   function goRow(i) {
     const lr = lotRows(); if (!lr.length) return;
     cursor = (i + lr.length) % lr.length; const r = lr[cursor];
-    setTarget(!has(r, 'article') ? { job: r.job, sno: r.sno, kind: 'article' } : (!r.nh && !has(r, 'huid')) ? { job: r.job, sno: r.sno, kind: 'huid' } : { job: r.job, sno: r.sno, kind: 'article' });
+    setTarget((needA() && !has(r, 'article')) ? { job: r.job, sno: r.sno, kind: 'article' } : (needH(r) && !has(r, 'huid')) ? { job: r.job, sno: r.sno, kind: 'huid' } : { job: r.job, sno: r.sno, kind: (O.capMode === 'huid' && !r.nh) ? 'huid' : 'article' });
   }
   function setKind(kind) { const r = curRow(); if (!r) return; if (kind === 'huid' && r.nh) { toast('This row has no HUID — Article only.', true); return; } setTarget({ job: r.job, sno: r.sno, kind }); }
 
+  // ---------- ask the PC (the extension) to upload to MANAK ----------
+  const hasPhotos = r => r.a || (!r.nh && r.h) || ['article', 'huid'].some(k => ['sent', 'queued', 'sending'].includes(stOf(r, k)));
+  const photosBusy = r => ['article', 'huid'].some(k => ['queued', 'sending'].includes(stOf(r, k)));
+  const lotLabel = j => (j ? 'Job ' + j : '(no job no.)');
+  async function sendCommand(cmd, label) {
+    if (!sid) return;
+    if (cmdBusy) { toast('Wait for the previous request…', true); return; }
+    cmdBusy = true;
+    try {
+      const r = await post({ action: 'command', session_id: sid, phone_token: tok, cmd }, 15000);
+      if (!r.ok) { toast('Request failed: ' + (r.error || 'error'), true); log('Upload request failed: ' + (r.error || '?')); return; }
+      toast('⬆ Upload requested (' + label + ') — waiting for the PC…'); log('Upload requested: ' + label + ' (#' + r.id + ')');
+      watchCmd(r.id);
+    } catch (e) { toast('Could not reach the relay: ' + e.message, true); }
+    finally { cmdBusy = false; }
+  }
+  async function watchCmd(id) {
+    const t0 = Date.now(); let warned = false;
+    while (Date.now() - t0 < 60000) {
+      await sleep(2000);
+      try {
+        const r = await post({ action: 'phone_init', session_id: sid, phone_token: tok }, 10000);
+        if (!r.ok) return; applyServer(r); renderAll();
+        const c = (r.cmds || []).find(x => x.id === id);
+        if (c && c.state !== 'new') { toast((c.state === 'taken' ? '✓ ' : '✗ ') + c.msg, c.state !== 'taken'); log('PC replied to #' + id + ': ' + c.state + ' — ' + c.msg); return; }
+        if (!warned && Date.now() - t0 > 20000) { warned = true; toast('The PC has not answered yet — is the extension’s “Capture from phone” window open?', true); }
+      } catch (e) {}
+    }
+  }
+  async function uploadRows(list) {
+    list = (list || []).filter(Boolean);
+    if (!list.length) { toast('No row selected.', true); return; }
+    const ok = list.filter(hasPhotos);
+    if (!ok.length) { toast('No photos on the PC for ' + (list.length > 1 ? 'these rows' : 'S No. ' + list[0].sno) + ' yet — capture or import first.', true); return; }
+    if (ok.some(photosBusy)) { toast('Photos are still being sent — try again in a moment.', true); return; }
+    const done = ok.filter(r => r.st === 'done'); let force = false, send = ok;
+    if (done.length) {
+      if (confirm(done.length + ' of ' + ok.length + ' row(s) are already uploaded to MANAK. Upload them again?')) force = true;
+      else send = ok.filter(r => r.st !== 'done');
+    }
+    if (!send.length) return;
+    await sendCommand({ type: 'upload_rows', rows: send.map(r => ({ job: r.job, sno: r.sno })), force }, send.length === 1 ? 'S No. ' + send[0].sno : send.length + ' rows');
+  }
+  const uploadLots = (jobs, retry) => sendCommand({ type: retry ? 'retry_lot' : 'upload_lot', jobs }, (retry ? 'retry failed · ' : '') + jobs.map(lotLabel).join(', '));
+  function renderPc() {
+    const m = pcMeta || {}, el = $('pcPill'); let t = 'PC: …', cls = '';
+    if (!Object.keys(m).length) t = 'PC status unknown';
+    else if (m.allow === false) { t = 'PC: remote upload OFF'; cls = 'err'; }
+    else if (m.run === 'running') { t = 'PC uploading ' + (m.cur || '') + ' · ' + (m.pending || 0) + ' left'; cls = 'run'; }
+    else if (m.halt) { t = 'PC paused: ' + m.halt; cls = 'err'; }
+    else if (m.failed) { t = 'PC idle · ' + m.failed + ' failed'; cls = 'err'; }
+    else if (m.done) { t = 'PC idle · ' + m.done + ' uploaded'; cls = 'ok'; }
+    else t = 'PC idle';
+    el.textContent = t; el.className = cls; el.title = m.halt || t;
+  }
+
   // ---------- rendering ----------
-  function renderAll() { renderHeader(); renderRows(); renderBanner(); renderSlots(); renderQueue(); renderImportBadge(); }
+  function renderAll() { renderHeader(); renderPc(); renderRows(); renderBanner(); renderSlots(); renderQueue(); renderImportBadge(); renderUpBar(); renderLotsPane(); }
 
   function renderHeader() {
     const sel = $('lotSel'), jobs = lots(); sel.innerHTML = '';
@@ -409,10 +498,10 @@
     }
     sel.value = lot;
     document.title = (lot ? 'Job ' + lot + ' — ' : '') + 'MANAK Desktop Capture';
-    const lr = lotRows(), total = lr.reduce((a, r) => a + (r.nh ? 1 : 2), 0);
-    const n = lr.reduce((a, r) => a + (has(r, 'article') ? 1 : 0) + (!r.nh && has(r, 'huid') ? 1 : 0), 0);
+    const lr = lotRows(), total = lr.reduce((a, r) => a + (needA() ? 1 : 0) + (needH(r) ? 1 : 0), 0);
+    const n = lr.reduce((a, r) => a + (needA() && has(r, 'article') ? 1 : 0) + (needH(r) && has(r, 'huid') ? 1 : 0), 0);
     $('progFill').style.width = total ? (100 * n / total) + '%' : '0%';
-    $('progTxt').textContent = total ? n + ' / ' + total + ' photos captured · ' + lr.filter(rowDone).length + ' / ' + lr.length + ' rows complete' : 'No rows in this lot yet — on the PC press Scan Table & Match, then New QR.';
+    $('progTxt').textContent = total ? n + ' / ' + total + ' photos captured · ' + lr.filter(rowDone).length + ' / ' + lr.length + ' rows complete' + (O.capMode === 'huid' ? ' · HUID-only mode' : O.capMode === 'article' ? ' · Article-only mode' : '') : 'No rows in this lot yet — on the PC press Scan Table & Match, then New QR.';
   }
 
   function chip(r, kind, L) {
@@ -421,6 +510,13 @@
     if (e) { if (e.st === 'fail') { cls = 'bad'; t = L + '✗'; } else if (e.st === 'sent') { cls = 'ok'; t = L + '✓'; } else { cls = 'wait'; t = L + '…'; } }
     else if (flag) { cls = 'ok'; t = L + '✓'; }
     return '<span class="chip ' + cls + '">' + t + '</span>';
+  }
+  function upChip(r) {
+    if (r.st === 'done') return '<span class="chip ok" title="Uploaded to MANAK">⬆✓</span>';
+    if (r.st === 'uploading') return '<span class="chip wait" title="Uploading now">⬆…</span>';
+    if (r.st === 'failed') return '<span class="chip bad" title="' + esc(r.note || 'Upload failed') + '">⬆✗</span>';
+    if (r.st === 'pending') return '<span class="chip rdy" title="Ready to upload">⬆•</span>';
+    return '';
   }
   function renderRows() {
     const q = $('rowQ').value.trim().toLowerCase(), f = O.filter || 'all', list = $('rowList'), frag = document.createDocumentFragment();
@@ -433,7 +529,7 @@
       const el = document.createElement('div');
       el.className = 'row' + (target && target.sno === r.sno && target.job === r.job ? ' cur' : '') + (done ? ' done' : ''); el.dataset.i = i;
       el.innerHTML = '<div class="rn">' + esc(r.sno) + '</div><div class="rm"><div>' + esc(r.item || '—') + ' <span class="tag">' + esc(r.tag) + '</span></div><div class="hu">' +
-        (r.nh ? '<i>no HUID — Article only</i>' : esc(r.huid || '—')) + '</div></div><div class="rs">' + chip(r, 'article', 'A') + (r.nh ? '' : chip(r, 'huid', 'H')) + '</div>';
+        (r.nh ? '<i>no HUID — Article only</i>' : esc(r.huid || '—')) + '</div></div><div class="rs">' + chip(r, 'article', 'A') + (r.nh ? '' : chip(r, 'huid', 'H')) + upChip(r) + '<button class="ub" data-i="' + i + '" title="Upload this row to MANAK"' + (hasPhotos(r) && r.st !== 'uploading' ? '' : ' disabled') + '>⬆</button></div>';
       frag.appendChild(el); n++;
     });
     list.innerHTML = ''; list.appendChild(frag);
@@ -469,8 +565,17 @@
       th.innerHTML = e && e.thumb ? '<img src="' + e.thumb + '" alt="">' : (flag ? '✓ on PC' : 'no photo'); th.dataset.src = e && e.thumb ? e.thumb : '';
       st.textContent = !e ? (flag ? 'Saved ✓' : 'Not captured') : (e.st === 'queued' ? 'Waiting…' : e.st === 'sending' ? 'Sending…' : e.st === 'sent' ? 'Sent ✓' : 'Failed ✗ ' + (e.err || '')) + ' · ' + fmtSize(e.size || e.blob.size);
     }
+    $('slotA').style.opacity = O.capMode === 'huid' ? .35 : 1; $('slotH').style.opacity = (O.capMode === 'article' || (r && r.nh)) ? .35 : 1;      // unused slot dimmed
   }
 
+  function renderUpBar() {
+    const r = curRow(), has = !!r && hasPhotos(r), busy = !!r && (photosBusy(r) || r.st === 'uploading');
+    $('upRow').disabled = !has || busy; $('hUpRow').disabled = !has || busy;
+    const lr = lotRows(); $('upLot').disabled = !lr.some(hasPhotos); $('hUpLot').disabled = $('upLot').disabled;
+    let t = '';
+    if (r) t = r.st === 'done' ? 'S No. ' + r.sno + ': uploaded to MANAK ✓' : r.st === 'uploading' ? 'S No. ' + r.sno + ': uploading…' : r.st === 'failed' ? 'S No. ' + r.sno + ': failed — ' + (r.note || 'see the PC') : r.st === 'pending' ? 'S No. ' + r.sno + ': ready to upload' : has ? '' : 'S No. ' + r.sno + ': no photos yet';
+    $('upInfo').textContent = t;
+  }
   function renderQueue() {
     const ent = Object.entries(S).filter(([, e]) => e.st !== 'sent').slice(-60).reverse(), box = $('qList');
     box.innerHTML = ent.length ? '' : '<div class="q muted">Nothing waiting.</div>';
@@ -480,6 +585,45 @@
       box.appendChild(d);
     }
   }
+
+  // ---------- Lots tab ----------
+  const selectedLots = () => { const all = lots(); return O.selLots ? all.filter(j => O.selLots.includes(j)) : all; };
+  function lotStats() {
+    const m = new Map();
+    for (const r of rows) {
+      let l = m.get(r.job); if (!l) { l = { job: r.job, rows: 0, cap: 0, ready: 0, done: 0, failed: 0, up: 0 }; m.set(r.job, l); }
+      l.rows++; if (hasPhotos(r)) l.cap++; if (r.st === 'pending') l.ready++; if (r.st === 'done') l.done++; if (r.st === 'failed') l.failed++; if (r.st === 'uploading') l.up++;
+    }
+    return [...m.values()].sort((a, b) => (a.job === lot ? -1 : b.job === lot ? 1 : String(b.job).localeCompare(String(a.job), undefined, { numeric: true })));
+  }
+  function renderLotsPane() {
+    const ls = lotStats(), sel = selectedLots(), b = $('lotsBadge'); b.textContent = ls.length; b.classList.toggle('hide', !ls.length);
+    if ($('paneLots').classList.contains('hide')) return;
+    const tot = ls.reduce((a, l) => ({ rows: a.rows + l.rows, cap: a.cap + l.cap, done: a.done + l.done, failed: a.failed + l.failed }), { rows: 0, cap: 0, done: 0, failed: 0 });
+    $('lotsSum').innerHTML = ls.length ? '<b>' + ls.length + '</b> lot' + (ls.length === 1 ? '' : 's') + ' · ' + tot.rows + ' rows · ' + tot.cap + ' with photos · <b style="color:var(--ok)">' + tot.done + ' uploaded</b>' + (tot.failed ? ' · <b style="color:var(--err)">' + tot.failed + ' failed</b>' : '') + ' · <b>' + sel.length + '</b> selected' : 'No lots yet.';
+    $('lUpload').disabled = !sel.length; $('lRetry').disabled = !ls.some(l => sel.includes(l.job) && l.failed);
+    $('lotsScroll').innerHTML = ls.map(l => {
+      const live = l.cap || 1, pct = Math.round(100 * l.done / live), s = sel.includes(l.job), todo = l.cap - l.done - l.failed;
+      return '<div class="lotc' + (s ? ' sel' : '') + (l.job === lot ? ' cur' : '') + '" data-job="' + esc(l.job) + '"><div class="lotc-h"><input type="checkbox" class="lcb"' + (s ? ' checked' : '') + '><b>' + esc(lotLabel(l.job)) + '</b>' + (l.job === lot ? '<span class="chip rdy">current</span>' : '') + '</div>' +
+        '<div class="lotc-st"><span>' + l.rows + ' row' + (l.rows === 1 ? '' : 's') + '</span><span>' + l.cap + ' with photos</span>' + (l.ready ? '<span class="rdy">' + l.ready + ' ready</span>' : '') + (l.up ? '<span class="rdy">' + l.up + ' uploading</span>' : '') +
+        (l.done ? '<span class="ok">' + l.done + ' uploaded</span>' : '') + (l.failed ? '<span class="bad">' + l.failed + ' failed</span>' : '') + (l.rows - l.cap ? '<span class="wrn">' + (l.rows - l.cap) + ' no photo</span>' : '') + '</div>' +
+        '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
+        '<div class="lotc-act"><button class="primary" data-act="up"' + (todo > 0 || l.ready ? '' : ' disabled') + '>⬆ Upload lot</button><button data-act="retry"' + (l.failed ? '' : ' disabled') + '>↻ Retry failed</button><button data-act="cam">📷 Capture here</button></div></div>';
+    }).join('') || '<div class="empty">No lots yet — scan a HUID list on the PC.</div>';
+  }
+  $('lotsScroll').addEventListener('change', e => { const cb = e.target.closest('.lcb'); if (!cb) return; const job = cb.closest('.lotc').dataset.job, cur = selectedLots(); O.selLots = cb.checked ? [...new Set(cur.concat(job))] : cur.filter(j => j !== job); saveO(); renderLotsPane(); });
+  $('lotsScroll').addEventListener('click', e => {
+    const b = e.target.closest('button[data-act]'); if (!b) return; const job = b.closest('.lotc').dataset.job;
+    if (b.dataset.act === 'up') uploadLots([job], false); else if (b.dataset.act === 'retry') uploadLots([job], true);
+    else if (b.dataset.act === 'cam') { lot = job; cursor = 0; target = findNext(0); setTab('cam'); renderAll(); }
+  });
+  $('lAll').onclick = () => { O.selLots = lots(); saveO(); renderLotsPane(); };
+  $('lNone').onclick = () => { O.selLots = []; saveO(); renderLotsPane(); };
+  $('lReady').onclick = () => { O.selLots = lotStats().filter(l => l.ready || l.cap - l.done - l.failed > 0).map(l => l.job); saveO(); renderLotsPane(); };
+  $('lUpload').onclick = () => uploadLots(selectedLots(), false);
+  $('lRetry').onclick = () => uploadLots(lotStats().filter(l => selectedLots().includes(l.job) && l.failed).map(l => l.job), true);
+  $('upRow').onclick = () => uploadRows([curRow()]); $('hUpRow').onclick = () => uploadRows([curRow()]);
+  $('upLot').onclick = () => uploadLots([lot], false); $('hUpLot').onclick = () => uploadLots([lot], false);
 
   // ---------- geometry (one pipeline for preview, capture and imports) ----------
   function geom(vw, vh, rot, zoom, panX, panY, r) {
@@ -920,11 +1064,12 @@
   // ---------- tabs / viewer / options ----------
   function setTab(t) {
     O.tab = t; saveO();
-    $('paneCam').classList.toggle('hide', t !== 'cam'); $('paneImp').classList.toggle('hide', t !== 'imp');
-    $('tabCam').classList.toggle('on', t === 'cam'); $('tabImp').classList.toggle('on', t === 'imp');
+    $('paneCam').classList.toggle('hide', t !== 'cam'); $('paneImp').classList.toggle('hide', t !== 'imp'); $('paneLots').classList.toggle('hide', t !== 'lots');
+    $('tabCam').classList.toggle('on', t === 'cam'); $('tabImp').classList.toggle('on', t === 'imp'); $('tabLots').classList.toggle('on', t === 'lots');
+    if (t === 'lots') renderLotsPane();
     if (t === 'cam') layoutView();
   }
-  $('tabCam').onclick = () => setTab('cam'); $('tabImp').onclick = () => setTab('imp');
+  $('tabCam').onclick = () => setTab('cam'); $('tabImp').onclick = () => setTab('imp'); $('tabLots').onclick = () => setTab('lots');
   for (const L of ['A', 'H']) {
     $('th' + L).onclick = () => { const s = $('th' + L).dataset.src; if (s) { $('viewerImg').src = s; $('viewer').classList.remove('hide'); } };
     $('retake' + L).onclick = () => { setKind(L === 'A' ? 'article' : 'huid'); setTab('cam'); };
@@ -933,7 +1078,7 @@
   $('viewer').onclick = () => $('viewer').classList.add('hide');
 
   $('lotSel').onchange = e => { lot = e.target.value; cursor = 0; target = findNext(0); try { const u = new URL(location.href); if (lot) u.searchParams.set('job', lot); else u.searchParams.delete('job'); history.replaceState(null, '', u); } catch (x) {} renderAll(); };
-  $('rowList').addEventListener('click', e => { const el = e.target.closest('.row'); if (el) goRow(+el.dataset.i); });
+  $('rowList').addEventListener('click', e => { const ub = e.target.closest('.ub'); if (ub) { e.stopPropagation(); uploadRows([lotRows()[+ub.dataset.i]]); return; } const el = e.target.closest('.row'); if (el) goRow(+el.dataset.i); });
   $('rowQ').oninput = renderRows;
   $('rowFilter').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { O.filter = b.dataset.f; saveO(); renderRows(); } });
   $('prev').onclick = () => goRow(cursor - 1); $('next').onclick = () => goRow(cursor + 1);
@@ -974,7 +1119,7 @@
     $('layoutSel').value = O.layout; $('pvSel').value = O.pv; $('pvBtn').textContent = O.pv === 'frame' ? '▣ Frame' : '▢ Crop';
     $('gridSel').value = O.grid; $('sizeSel').value = O.sizeMode; $('maxBox').style.display = O.sizeMode === 'custom' ? '' : 'none'; $('maxSide').value = O.maxSide;
     $('quality').value = O.quality; $('qualOut').textContent = Math.round(O.quality * 100) + '%'; $('impProc').value = O.impProc;
-    $('timerSel').value = String(O.timer); $('optAuto').checked = O.auto; $('optReview').checked = O.review; $('optSound').checked = O.sound; $('optMirror').checked = O.mirror;
+    $('timerSel').value = String(O.timer); $('optCapMode').value = O.capMode; $('optAuto').checked = O.auto; $('optReview').checked = O.review; $('optSound').checked = O.sound; $('optMirror').checked = O.mirror;
     $('concSel').value = String(O.conc); $('triesSel').value = String(O.tries); $('resSel').value = O.res; $('themeSel').value = O.theme;
     document.documentElement.dataset.theme = O.theme === 'auto' ? '' : O.theme; if (O.theme === 'auto') document.documentElement.removeAttribute('data-theme');
     $('zoomOut').textContent = (+O.zoom).toFixed(1) + '×'; $('zoomSl').value = O.zoom;
@@ -988,6 +1133,7 @@
   $('quality').oninput = e => { O.quality = +e.target.value; $('qualOut').textContent = Math.round(O.quality * 100) + '%'; saveO(); };
   $('impProc').onchange = e => { O.impProc = e.target.value; saveO(); };
   $('timerSel').onchange = e => { O.timer = +e.target.value; saveO(); };
+  $('optCapMode').onchange = e => { O.capMode = e.target.value; saveO(); target = findNext(cursor); renderAll(); toast(O.capMode === 'huid' ? 'HUID photos only' : O.capMode === 'article' ? 'Article photos only' : 'Article + HUID'); };
   $('optAuto').onchange = e => { O.auto = e.target.checked; saveO(); }; $('optReview').onchange = e => { O.review = e.target.checked; saveO(); }; $('optSound').onchange = e => { O.sound = e.target.checked; saveO(); };
   $('optMirror').onchange = e => { O.mirror = e.target.checked; saveO(); updateHud(); };
   $('concSel').onchange = e => { O.conc = +e.target.value; saveO(); pump(); }; $('triesSel').onchange = e => { O.tries = +e.target.value; saveO(); };
@@ -1021,6 +1167,7 @@
       't': () => { O.timer = cycle([0, 2, 3, 5, 10], O.timer, 1); saveO(); syncOptsUI(); toast('Timer: ' + (O.timer ? O.timer + ' s' : 'off')); },
       '+': () => { setZoom(O.zoom * 1.15); updateHud(); }, '=': () => { setZoom(O.zoom * 1.15); updateHud(); }, '-': () => { setZoom(O.zoom / 1.15); updateHud(); },
       '0': () => { resetView(); updateHud(); }, 'v': () => setTab('cam'), 'i': () => setTab('imp'),
+      'u': () => (e.shiftKey ? uploadLots([lot], false) : uploadRows([curRow()])),
       'b': toggleBig, 'l': toggleRows, 'o': toggleOpts, 'p': togglePv,
       '/': () => $('rowQ').focus(), '?': () => $('keys').classList.remove('hide')
     };
